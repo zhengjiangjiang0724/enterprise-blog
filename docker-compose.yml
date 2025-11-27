@@ -55,6 +55,16 @@ services:
     # 如果需要运行迁移，可以使用单独命令:
     # command: ["./server"]  # 默认 CMD 已在 Dockerfile 中设置
 
+  frontend:
+    build: ./frontend
+    container_name: enterprise-blog-frontend
+    depends_on:
+      - app
+    environment:
+      VITE_API_BASE_URL: "http://app:8080/api/v1"
+    ports:
+      - "3000:80"
+
 volumes:
   postgres_data:
 

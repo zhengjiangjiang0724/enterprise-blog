@@ -215,9 +215,14 @@ func (r *ArticleRepository) List(query models.ArticleQuery) ([]*models.Article, 
 		argIndex++
 	}
 
+	// 处理搜索：使用全文搜索
+	var tsQuery string
 	if query.Search != "" {
-		where = append(where, fmt.Sprintf("(a.title ILIKE $%d OR a.content ILIKE $%d)", argIndex, argIndex))
-		args = append(args, "%"+query.Search+"%")
+		// 将搜索词转换为 tsquery 格式（支持多词搜索，用 & 连接）
+		searchTerms := strings.Fields(query.Search)
+		tsQuery = strings.Join(searchTerms, " & ")
+		where = append(where, fmt.Sprintf("a.search_vector @@ to_tsquery('english', $%d)", argIndex))
+		args = append(args, tsQuery)
 		argIndex++
 	}
 
@@ -237,13 +242,23 @@ func (r *ArticleRepository) List(query models.ArticleQuery) ([]*models.Article, 
 	}
 
 	// 排序
-	orderBy := "a.created_at DESC"
-	if query.SortBy != "" {
+	var orderBy string
+	if query.Search != "" && tsQuery != "" {
+		// 有搜索时，按相关性排序（相关性高的在前），然后按创建时间
+		// 注意：PostgreSQL 的 ORDER BY 中不能直接使用参数，但我们可以使用相同的 tsquery 表达式
+		// 由于 tsQuery 已经通过参数传入 WHERE 子句，这里使用相同的值（已转义）是安全的
+		escapedTsQuery := strings.ReplaceAll(tsQuery, "'", "''")
+		orderBy = fmt.Sprintf("ts_rank(a.search_vector, to_tsquery('english', '%s')) DESC, a.created_at DESC", escapedTsQuery)
+	} else if query.SortBy != "" {
+		// 无搜索时，按指定字段排序
 		if query.Order == "asc" {
 			orderBy = fmt.Sprintf("a.%s ASC", query.SortBy)
 		} else {
 			orderBy = fmt.Sprintf("a.%s DESC", query.SortBy)
 		}
+	} else {
+		// 默认按创建时间倒序
+		orderBy = "a.created_at DESC"
 	}
 
 	// 获取列表

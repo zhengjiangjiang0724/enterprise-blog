@@ -68,6 +68,17 @@ go run cmd/server/main.go
 
 服务将在 `http://localhost:8080` 启动
 
+### 使用 Docker Compose 启动前后端
+
+项目提供了 docker-compose 方案，一次性启动 PostgreSQL、Redis、后端 API 和前端：
+
+```bash
+docker-compose up -d postgres redis app frontend
+```
+
+- 后端 API: `http://localhost:8080/api/v1`
+- 前端 Web: `http://localhost:3000`
+
 ## 使用Makefile
 
 项目提供了Makefile来简化常用操作：
@@ -105,6 +116,7 @@ make benchmark
 - [快速开始](./docs/QUICKSTART.md) - 快速上手指南
 - [挑战与解决方案](./docs/CHALLENGES.md) - 开发中的挑战和解决方案
 - [项目总览](./docs/PROJECT_OVERVIEW.md) - 项目整体介绍
+- [前端架构文档](./docs/frontend_architecture.md) - 前端项目结构与技术说明
 - [交付清单](./docs/SUMMARY.md) - 完整的交付内容清单
 
 ## 核心特性
