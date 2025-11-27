@@ -35,7 +35,10 @@ frontend/
     ├── components/
     │   ├── ArticleDetail.tsx  # 文章详情页
     │   ├── ArticleList.tsx    # 文章列表 + 搜索
-    │   └── Login.tsx          # 登录表单
+    │   ├── ArticleEditor.tsx  # 新建/编辑文章
+    │   ├── Login.tsx          # 登录表单
+    │   ├── Register.tsx       # 注册表单
+    │   └── Profile.tsx        # 用户资料查看与修改
     └── hooks/
         └── useAuth.ts         # 简单的 JWT 管理（localStorage）
 ```
@@ -56,13 +59,15 @@ frontend/
 后端 API：
 
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/register`
+- `GET /api/v1/users/profile`
+- `PUT /api/v1/users/profile`
 
 前端实现：
 
-- `components/Login.tsx`
-  - 收集 email/password，调用 `POST /auth/login`
-  - 成功后从响应中取出 `token`，通过 `useAuth().login(token)` 写入 localStorage
-  - 跳转到首页 `/`
+- `components/Login.tsx`：登录后存储 JWT，跳回 `/`
+- `components/Register.tsx`：注册成功后自动登录
+- `components/Profile.tsx`：展示并可更新用户名、邮箱、头像、简介
 
 ### 3.3 文章列表与搜索
 
@@ -91,14 +96,35 @@ frontend/
   - 从 `useParams()` 获取 `id`
   - 请求：`GET /articles/:id`
   - 展示标题、统计信息和正文内容
+  - 登录用户可跳转到编辑页
+
+### 3.5 新建 / 编辑文章
+
+后端 API：
+
+- `POST /api/v1/articles`
+- `PUT /api/v1/articles/:id`
+
+前端实现：
+
+- `components/ArticleEditor.tsx`
+  - 支持 `/articles/new` 与 `/articles/:id/edit`
+  - 表单字段：标题、摘要、封面、状态、分类、标签、正文
+  - 登录状态由 `useAuth` 校验，未登录用户会提示先登录
+
+### 3.6 导航与菜单
+
+- 顶部导航在登录后会显示 “New Article” 与 “Profile” 菜单
+- 未登录状态下显示 Login / Register 入口
 
 ## 4. 鉴权与状态管理
 
 本期实现采用极简方案：
 
-- `hooks/useAuth.ts` 对 localStorage 中的 `token` 做封装
+- `hooks/useAuth.ts` 对 localStorage 中的 `token` 做封装，提供 `login/logout`
 - Axios 拦截器在每次请求前读取 token，若存在则附加到请求头
-- 未做复杂的全局状态管理（如 Redux / Zustand），方便初期维护
+- 表单组件（Profile、ArticleEditor 等）会在渲染阶段检查是否已登录
+- 未使用 Redux / Zustand 等复杂方案，降低初期成本
 
 后续如需扩展：
 
@@ -133,8 +159,8 @@ frontend:
 说明：
 
 - `depends_on: app` 确保后端服务先启动
-- 通过环境变量 `VITE_API_BASE_URL` 指向内部服务名 `app`
-- 将 Nginx 暴露的 `80` 端口映射到宿主机 `3000`
+- 构建阶段通过 `VITE_API_BASE_URL`（Build Args）写入 bundle，运行阶段 Nginx 以 `try_files` 支持前端路由
+- 将容器的 `80` 端口映射到宿主机 `3000`
 
 ### 5.3 启动方式
 

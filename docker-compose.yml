@@ -56,12 +56,13 @@ services:
     # command: ["./server"]  # 默认 CMD 已在 Dockerfile 中设置
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE_URL=http://localhost:8080/api/v1
     container_name: enterprise-blog-frontend
     depends_on:
       - app
-    environment:
-      VITE_API_BASE_URL: "http://app:8080/api/v1"
     ports:
       - "3000:80"
 

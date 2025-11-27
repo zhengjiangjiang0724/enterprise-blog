@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import type { ApiResponse, Article } from "../api/types";
+import { useAuth } from "../hooks/useAuth";
 
 export function ArticleDetail() {
   const { id } = useParams<{ id: string }>();
   const [article, setArticle] = useState<Article | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth();
 
   useEffect(() => {
     if (!id) return;
@@ -37,9 +39,28 @@ export function ArticleDetail() {
   return (
     <article className="article-detail">
       <h1>{article.title}</h1>
+      {token && (
+        <div className="article-actions">
+          <Link to={`/articles/${article.id}/edit`} className="button secondary">
+            Edit Article
+          </Link>
+        </div>
+      )}
       <p className="meta">
+        {article.category && <span>Category: {article.category.name} · </span>}
         Views: {article.view_count} · Comments: {article.comment_count}
       </p>
+      {article.tags && article.tags.length > 0 && (
+        <p className="meta">
+          Tags:{" "}
+          {article.tags.map((t, idx) => (
+            <span key={t.id}>
+              {t.name}
+              {idx < article.tags!.length - 1 ? ", " : ""}
+            </span>
+          ))}
+        </p>
+      )}
       {article.cover_image && (
         <img src={article.cover_image} alt={article.title} />
       )}
