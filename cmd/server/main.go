@@ -14,6 +14,7 @@ import (
 	"enterprise-blog/internal/handlers"
 	"enterprise-blog/internal/middleware"
 	"enterprise-blog/internal/repository"
+	"enterprise-blog/internal/search"
 	"enterprise-blog/internal/services"
 	"enterprise-blog/pkg/jwt"
 	"enterprise-blog/pkg/logger"
@@ -46,6 +47,9 @@ func main() {
 	} else {
 		defer database.CloseRedis()
 	}
+
+	// 初始化 Elasticsearch（可选，失败仅记录日志）
+	search.InitElasticsearch()
 
 	// 初始化JWT管理器
 	jwtMgr := jwt.NewJWTManager(config.AppConfig.JWT.Secret, config.AppConfig.JWT.ExpireDuration())
@@ -134,6 +138,11 @@ func main() {
 		{
 			admin.GET("/users", userHandler.ListUsers)
 			admin.GET("/users/:id", userHandler.GetUser)
+			// 管理后台文章管理
+			admin.GET("/articles", articleHandler.AdminList)
+			admin.GET("/articles/:id", articleHandler.AdminGetByID)
+			admin.PUT("/articles/:id/status", articleHandler.AdminUpdateStatus)
+			admin.DELETE("/articles/:id", articleHandler.AdminDelete)
 		}
 	}
 
@@ -143,6 +152,17 @@ func main() {
 		Addr:    addr,
 		Handler: router,
 	}
+
+	// 启动 Redis 计数回刷 goroutine（view_count / like_count）
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_ = services.FlushArticleCountersFromRedis(ctx)
+			cancel()
+		}
+	}()
 
 	// 优雅关闭
 	go func() {

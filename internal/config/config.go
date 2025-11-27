@@ -31,6 +31,10 @@ type DatabaseConfig struct {
 	Password string
 	Name     string
 	SSLMode  string
+	// 连接池配置
+	MaxOpenConns           int
+	MaxIdleConns           int
+	ConnMaxLifetimeMinutes int
 }
 
 type RedisConfig struct {
@@ -75,6 +79,10 @@ func Load() error {
 			Password: getEnv("DB_PASSWORD", "postgres"),
 			Name:     getEnv("DB_NAME", "enterprise_blog"),
 			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			// 默认值适用于中小规模部署，可通过环境变量覆盖
+			MaxOpenConns:           getEnvAsInt("DB_MAX_OPEN_CONNS", 50),
+			MaxIdleConns:           getEnvAsInt("DB_MAX_IDLE_CONNS", 10),
+			ConnMaxLifetimeMinutes: getEnvAsInt("DB_CONN_MAX_LIFETIME_MINUTES", 60),
 		},
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),

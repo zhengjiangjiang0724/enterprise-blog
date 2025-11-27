@@ -216,6 +216,58 @@ go func() {
 - 计数准确
 - 响应速度提升（异步处理）
 
+## 7. 计数类字段与缓存协同（浏览量 / 点赞）
+
+### 挑战描述
+
+- 文章的 `view_count` 和 `like_count` 通过 `UPDATE articles SET ...` 直接在 PostgreSQL 中自增：
+  - 热点文章在高并发下会频繁更新同一行，产生行锁竞争；
+  - 写放大严重，影响其它查询性能；
+  - 同时又希望利用 Redis 做加速，但要避免缓存与数据库之间的数据不一致。
+
+### 解决方案
+
+**方案一：Redis 计数缓冲 + 定时批量回刷数据库**
+
+1. **写入缓冲层（Redis）**
+   - 浏览量：
+     - 在读取文章详情时，不再直接更新数据库，而是：
+       ```go
+       INCR blog:article:view:{article_id}
+       ```
+     - Redis 不可用或失败时，退回到原有的 DB 自增：
+       ```go
+       UPDATE articles SET view_count = view_count + 1 WHERE id = $1
+       ```
+   - 点赞数：
+     - 点赞接口 `POST /articles/:id/like` 优先执行：
+       ```go
+       INCR blog:article:like:{article_id}
+       ```
+     - Redis 失败时，退回到 DB 自增 `like_count`。
+
+2. **定时任务批量回刷**
+   - 在服务启动时启动一个 goroutine，每隔 30 秒执行一次：
+     - 使用 `SCAN blog:article:view:*` / `blog:article:like:*` 扫描所有计数键；
+     - 对每个键读取增量 `delta`，执行：
+       ```sql
+       UPDATE articles SET view_count = view_count + delta WHERE id = article_id;
+       UPDATE articles SET like_count = like_count + delta WHERE id = article_id;
+       ```
+     - 成功回刷后删除 Redis 中对应的计数键。
+
+3. **容错设计**
+   - 计数写入 Redis 失败时，**不会影响业务成功返回**，而是回退到原有的数据库自增逻辑；
+   - 回刷失败时保留 Redis 键，等待下一个周期重试。
+
+**效果**：
+
+- 极大减少了对热点行的直接 `UPDATE`，削弱锁竞争；
+- 在高并发场景下保持浏览量 / 点赞数的最终一致性；
+- 对现有接口完全透明，前端无需改动。
+
+## 8. 错误处理与日志统一
+
 ## 7. 错误处理统一
 
 ### 挑战描述
@@ -254,7 +306,7 @@ type Response struct {
 - 错误信息清晰
 - 便于问题排查
 
-## 8. 性能优化
+## 9. 性能优化
 
 ### 挑战描述
 

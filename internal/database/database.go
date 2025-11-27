@@ -28,9 +28,20 @@ func Init() error {
 		return fmt.Errorf("failed to get sql.DB from gorm: %w", err)
 	}
 
-	sqlDB.SetMaxOpenConns(25)
-	sqlDB.SetMaxIdleConns(5)
-	sqlDB.SetConnMaxLifetime(5 * time.Hour)
+	// 使用配置中的连接池参数
+	maxOpen := config.AppConfig.Database.MaxOpenConns
+	maxIdle := config.AppConfig.Database.MaxIdleConns
+	lifeMinutes := config.AppConfig.Database.ConnMaxLifetimeMinutes
+
+	if maxOpen > 0 {
+		sqlDB.SetMaxOpenConns(maxOpen)
+	}
+	if maxIdle > 0 {
+		sqlDB.SetMaxIdleConns(maxIdle)
+	}
+	if lifeMinutes > 0 {
+		sqlDB.SetConnMaxLifetime(time.Duration(lifeMinutes) * time.Minute)
+	}
 
 	if err := sqlDB.Ping(); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)

@@ -28,6 +28,21 @@ services:
       timeout: 5s
       retries: 5
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: enterprise-blog-es
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
   app:
     build: .
     container_name: enterprise-blog-app
@@ -35,6 +50,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -49,6 +66,8 @@ services:
       DB_SSLMODE: disable
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      # 可选：配置 Elasticsearch 地址，启用 ES 搜索
+      ELASTICSEARCH_URL: http://elasticsearch:9200
       JWT_SECRET: "change-me-in-production"
       LOG_LEVEL: info
       LOG_FILE: ""

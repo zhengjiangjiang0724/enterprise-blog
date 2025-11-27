@@ -95,7 +95,7 @@ PUT /users/profile
 
 #### 获取文章列表
 ```
-GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&search=keyword
+GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&search=keyword&search_mode=es
 ```
 
 **查询参数**:
@@ -107,6 +107,7 @@ GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&se
 - `search`: 搜索关键词
 - `sort_by`: 排序字段（created_at/view_count等）
 - `order`: 排序方向（asc/desc）
+- `search_mode`: 可选，`es` 时使用 Elasticsearch 搜索；省略或其他值时使用 PostgreSQL 全文搜索
 
 **响应**:
 ```json

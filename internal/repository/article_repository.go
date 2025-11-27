@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,8 +20,8 @@ func NewArticleRepository() *ArticleRepository {
 	return &ArticleRepository{}
 }
 
-func (r *ArticleRepository) Create(article *models.Article) error {
-	tx := database.DB.Begin()
+func (r *ArticleRepository) Create(ctx context.Context, article *models.Article) error {
+	tx := database.DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -59,6 +60,12 @@ func (r *ArticleRepository) Create(article *models.Article) error {
 }
 
 func (r *ArticleRepository) GetByID(id uuid.UUID) (*models.Article, error) {
+	// 默认使用背景上下文，以兼容旧调用；推荐通过带 ctx 的方法调用
+	ctx := context.Background()
+	return r.GetByIDWithContext(ctx, id)
+}
+
+func (r *ArticleRepository) GetByIDWithContext(ctx context.Context, id uuid.UUID) (*models.Article, error) {
 	article := &models.Article{}
 	query := `
 		SELECT a.id, a.title, a.slug, a.content, a.excerpt, a.cover_image, a.status,
@@ -68,7 +75,7 @@ func (r *ArticleRepository) GetByID(id uuid.UUID) (*models.Article, error) {
 		WHERE a.id = $1 AND a.deleted_at IS NULL
 	`
 
-	result := database.DB.Raw(query, id).Scan(article)
+	result := database.DB.WithContext(ctx).Raw(query, id).Scan(article)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -85,6 +92,11 @@ func (r *ArticleRepository) GetByID(id uuid.UUID) (*models.Article, error) {
 }
 
 func (r *ArticleRepository) GetBySlug(slug string) (*models.Article, error) {
+	ctx := context.Background()
+	return r.GetBySlugWithContext(ctx, slug)
+}
+
+func (r *ArticleRepository) GetBySlugWithContext(ctx context.Context, slug string) (*models.Article, error) {
 	article := &models.Article{}
 	query := `
 		SELECT a.id, a.title, a.slug, a.content, a.excerpt, a.cover_image, a.status,
@@ -94,7 +106,7 @@ func (r *ArticleRepository) GetBySlug(slug string) (*models.Article, error) {
 		WHERE a.slug = $1 AND a.deleted_at IS NULL
 	`
 
-	result := database.DB.Raw(query, slug).Scan(article)
+	result := database.DB.WithContext(ctx).Raw(query, slug).Scan(article)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -110,7 +122,8 @@ func (r *ArticleRepository) GetBySlug(slug string) (*models.Article, error) {
 }
 
 func (r *ArticleRepository) Update(article *models.Article) error {
-	tx := database.DB.Begin()
+	ctx := context.Background()
+	tx := database.DB.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error
 	}
@@ -160,8 +173,9 @@ func (r *ArticleRepository) Update(article *models.Article) error {
 }
 
 func (r *ArticleRepository) Delete(id uuid.UUID) error {
+	ctx := context.Background()
 	query := `UPDATE articles SET deleted_at = $1 WHERE id = $2 AND deleted_at IS NULL`
-	result := database.DB.Exec(query, time.Now(), id)
+	result := database.DB.WithContext(ctx).Exec(query, time.Now(), id)
 	if result.Error != nil {
 		return result.Error
 	}
@@ -172,7 +186,7 @@ func (r *ArticleRepository) Delete(id uuid.UUID) error {
 	return nil
 }
 
-func (r *ArticleRepository) List(query models.ArticleQuery) ([]*models.Article, int64, error) {
+func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery) ([]*models.Article, int64, error) {
 	var articles []*models.Article
 	var total int64
 
@@ -228,7 +242,7 @@ func (r *ArticleRepository) List(query models.ArticleQuery) ([]*models.Article, 
 
 	// 获取总数
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM articles a WHERE %s", whereClause)
-	err := database.DB.Raw(countQuery, args...).Scan(&total).Error
+	err := database.DB.WithContext(ctx).Raw(countQuery, args...).Scan(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -265,7 +279,7 @@ func (r *ArticleRepository) List(query models.ArticleQuery) ([]*models.Article, 
 	`, whereClause, orderBy, argIndex, argIndex+1)
 	
 	args = append(args, query.PageSize, offset)
-	err = database.DB.Raw(listQuery, args...).Scan(&articles).Error
+	err = database.DB.WithContext(ctx).Raw(listQuery, args...).Scan(&articles).Error
 	if err != nil {
 		return nil, 0, err
 	}

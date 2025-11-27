@@ -7,6 +7,8 @@ import { Register } from "./components/Register";
 import { Profile } from "./components/Profile";
 import { AdminUserList } from "./components/AdminUserList";
 import { AdminUserDetail } from "./components/AdminUserDetail";
+import { AdminArticleList } from "./components/AdminArticleList";
+import { AdminArticleDetail } from "./components/AdminArticleDetail";
 import { useAuth } from "./hooks/useAuth";
 import { RequireAuth, RequireRole } from "./components/RouteGuards";
 
@@ -25,7 +27,12 @@ export default function App() {
               <>
                 <Link to="/articles/new">新建文章</Link>
                 <Link to="/profile">个人资料</Link>
-                {isAdmin && <Link to="/admin/users">用户管理</Link>}
+                {isAdmin && (
+                  <>
+                    <Link to="/admin/articles">文章管理</Link>
+                    <Link to="/admin/users">用户管理</Link>
+                  </>
+                )}
               </>
             )}
           </nav>
@@ -90,6 +97,22 @@ export default function App() {
             element={
               <RequireRole roles="admin">
                 <AdminUserDetail />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/articles"
+            element={
+              <RequireRole roles="admin">
+                <AdminArticleList />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/articles/:id"
+            element={
+              <RequireRole roles="admin">
+                <AdminArticleDetail />
               </RequireRole>
             }
           />
