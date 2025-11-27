@@ -101,6 +101,7 @@ func main() {
 			public.GET("/articles", articleHandler.List)
 			public.GET("/articles/:id", articleHandler.GetByID)
 			public.GET("/articles/slug/:slug", articleHandler.GetBySlug)
+			public.POST("/articles/:id/like", articleHandler.Like)
 
 			// 分类和标签
 			public.GET("/categories", categoryHandler.List)

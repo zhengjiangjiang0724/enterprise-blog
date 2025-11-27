@@ -128,6 +128,13 @@ GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&se
 GET /articles/:id
 ```
 
+#### 文章点赞
+```
+POST /articles/:id/like
+```
+
+**说明**: 点赞一次将该文章的 `like_count` 加 1，目前不做去重控制（前端可根据需要做防重复点击）。
+
 #### 通过Slug获取文章
 ```
 GET /articles/slug/:slug

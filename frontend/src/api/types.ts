@@ -28,6 +28,7 @@ export interface Tag {
   name: string;
   slug: string;
   color?: string;
+  description?: string;
 }
 
 export interface Article {
@@ -70,5 +71,27 @@ export interface ArticlePayload {
   category_id?: string | null;
   tag_ids?: string[];
 }
+
+export interface Comment {
+  id: string;
+  article_id: string;
+  user_id?: string | null;
+  parent_id?: string | null;
+  content: string;
+  author: string;
+  email?: string;
+  website?: string;
+  created_at: string;
+}
+
+export interface CommentPayload {
+  parent_id?: string | null;
+  content: string;
+  author?: string;
+  email?: string;
+  website?: string;
+  article_id: string;
+}
+
 
 

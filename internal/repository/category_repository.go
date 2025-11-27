@@ -62,7 +62,7 @@ func (r *CategoryRepository) Update(category *models.Category) error {
 	if result.Error != nil {
 		return result.Error
 	}
-
+	
 	if result.RowsAffected == 0 {
 		return errors.New("category not found")
 	}
@@ -75,7 +75,7 @@ func (r *CategoryRepository) Delete(id uuid.UUID) error {
 	if result.Error != nil {
 		return result.Error
 	}
-
+	
 	if result.RowsAffected == 0 {
 		return errors.New("category not found")
 	}

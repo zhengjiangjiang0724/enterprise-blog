@@ -3,6 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../api/client";
 import type { ApiResponse, Article, ArticlePayload } from "../api/types";
 import { useAuth } from "../hooks/useAuth";
+import { Button } from "./Button";
+import { useMessage } from "./MessageProvider";
+import ReactMarkdown from "react-markdown";
 
 const STATUS_OPTIONS = ["draft", "published", "archived"];
 
@@ -21,14 +24,16 @@ export function ArticleEditor() {
   const isEdit = useMemo(() => Boolean(id), [id]);
   const navigate = useNavigate();
   const { token } = useAuth();
+  const { showSuccess, showError } = useMessage();
 
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
 
   useEffect(() => {
     if (!token) {
-      setError("You must login to create or edit articles.");
+      setError("请先登录后再创建或编辑文章。");
     }
   }, [token]);
 
@@ -40,7 +45,7 @@ export function ArticleEditor() {
       try {
         const res = await apiClient.get<ApiResponse<Article>>(`/articles/${id}`);
         if (res.data.code !== 200 || !res.data.data) {
-          throw new Error(res.data.message || "Failed to load article");
+          throw new Error(res.data.message || "文章加载失败");
         }
         const article = res.data.data;
         setForm({
@@ -53,7 +58,7 @@ export function ArticleEditor() {
           tag_ids_text: article.tags?.map((t) => t.id).join(",") || ""
         });
       } catch (e: any) {
-        setError(e.message || "Unknown error");
+        setError(e.message || "发生未知错误");
       } finally {
         setLoading(false);
       }
@@ -61,12 +66,18 @@ export function ArticleEditor() {
     fetchArticle();
   }, [isEdit, id]);
 
-  const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setForm((prev) => ({
-      ...prev,
-      [field]: e.target.value
-    }));
-  };
+  const handleChange =
+    (field: keyof typeof form) =>
+    (
+      e: React.ChangeEvent<
+        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+      >
+    ) => {
+      setForm((prev) => ({
+        ...prev,
+        [field]: e.target.value
+      }));
+    };
 
   const parseTagIds = () => {
     if (!form.tag_ids_text.trim()) return undefined;
@@ -81,15 +92,13 @@ export function ArticleEditor() {
     content: form.content,
     excerpt: form.excerpt,
     cover_image: form.cover_image,
-    status: form.status,
-    category_id: form.category_id || null,
-    tag_ids: parseTagIds()
+    status: form.status
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) {
-      setError("You must login to create or edit articles.");
+      setError("请先登录后再操作。");
       return;
     }
     setLoading(true);
@@ -106,11 +115,15 @@ export function ArticleEditor() {
         res = await apiClient.post<ApiResponse<Article>>("/articles", payload);
       }
       if (res.data.code !== 200 || !res.data.data) {
-        throw new Error(res.data.message || "Operation failed");
+        throw new Error(res.data.message || "操作失败");
       }
+      showSuccess(isEdit ? "文章已更新" : "文章已创建");
       navigate(`/articles/${res.data.data.id}`);
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message || "Unknown error");
+      const msg =
+        e.response?.data?.message || e.message || "发生未知错误";
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -119,17 +132,17 @@ export function ArticleEditor() {
   if (!token) {
     return (
       <div className="article-form">
-        <p className="error">You must login to access this page.</p>
+        <p className="error">请先登录后再访问该页面。</p>
       </div>
     );
   }
 
   return (
     <div className="article-form">
-      <h2>{isEdit ? "Edit Article" : "Create Article"}</h2>
+      <h2>{isEdit ? "编辑文章" : "创建文章"}</h2>
       <form onSubmit={handleSubmit}>
         <label>
-          Title
+          标题
           <input
             value={form.title}
             onChange={handleChange("title")}
@@ -137,18 +150,18 @@ export function ArticleEditor() {
           />
         </label>
         <label>
-          Excerpt
+          摘要
           <input value={form.excerpt} onChange={handleChange("excerpt")} />
         </label>
         <label>
-          Cover Image URL
+          封面图片地址
           <input
             value={form.cover_image}
             onChange={handleChange("cover_image")}
           />
         </label>
         <label>
-          Status
+          发布状态
           <select value={form.status} onChange={handleChange("status")}>
             {STATUS_OPTIONS.map((status) => (
               <option value={status} key={status}>
@@ -157,35 +170,71 @@ export function ArticleEditor() {
             ))}
           </select>
         </label>
-        <label>
-          Category ID
-          <input
-            value={form.category_id}
-            onChange={handleChange("category_id")}
-            placeholder="Optional UUID"
-          />
-        </label>
-        <label>
-          Tag IDs (comma separated UUIDs)
-          <input
-            value={form.tag_ids_text}
-            onChange={handleChange("tag_ids_text")}
-            placeholder="id1,id2,id3"
-          />
-        </label>
-        <label>
-          Content
-          <textarea
-            value={form.content}
-            onChange={handleChange("content")}
-            rows={10}
-            required
-          />
-        </label>
+        {/* 分类和标签功能已简化，暂不在表单中配置 */}
+        <div className="editor-section">
+          <div className="editor-header">
+            <span>正文内容</span>
+            <div className="editor-tabs">
+              <button
+                type="button"
+                className={`editor-tab ${
+                  activeTab === "edit" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("edit")}
+              >
+                编辑
+              </button>
+              <button
+                type="button"
+                className={`editor-tab ${
+                  activeTab === "preview" ? "active" : ""
+                }`}
+                onClick={() => setActiveTab("preview")}
+              >
+                预览
+              </button>
+            </div>
+          </div>
+          <div className="editor-body">
+            <textarea
+              value={form.content}
+              onChange={handleChange("content")}
+              rows={10}
+              required
+            />
+            {activeTab === "preview" && (
+              <div className="markdown-preview">
+                <ReactMarkdown>
+                  {form.content || "（暂无内容）"}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+        </div>
         {error && <p className="error">{error}</p>}
-        <button type="submit" className="button primary" disabled={loading}>
-          {loading ? "Saving..." : isEdit ? "Update Article" : "Create Article"}
-        </button>
+        <div className="editor-actions">
+          <Button
+            type="submit"
+            variant="secondary"
+            loading={loading}
+            onClick={() =>
+              setForm((prev) => ({ ...prev, status: "draft" }))
+            }
+          >
+            保存为草稿
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            loading={loading}
+            style={{ marginLeft: "8px" }}
+            onClick={() =>
+              setForm((prev) => ({ ...prev, status: "published" }))
+            }
+          >
+            {isEdit ? "更新并发布" : "发布文章"}
+          </Button>
+        </div>
       </form>
     </div>
   );

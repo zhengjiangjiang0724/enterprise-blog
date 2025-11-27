@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -32,8 +31,8 @@ func (r *ArticleRepository) Create(article *models.Article) error {
 	}()
 
 	query := `
-		INSERT INTO articles (id, title, slug, content, excerpt, cover_image, status, author_id, category_id, view_count, like_count, comment_count, published_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		INSERT INTO articles (id, title, slug, content, excerpt, cover_image, status, author_id, view_count, like_count, comment_count, published_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		RETURNING id
 	`
 	
@@ -48,19 +47,12 @@ func (r *ArticleRepository) Create(article *models.Article) error {
 	row := tx.Raw(
 		query,
 		article.ID, article.Title, article.Slug, article.Content, article.Excerpt,
-		article.CoverImage, article.Status, article.AuthorID, article.CategoryID,
+		article.CoverImage, article.Status, article.AuthorID,
 		article.ViewCount, article.LikeCount, article.CommentCount,
 		article.PublishedAt, article.CreatedAt, article.UpdatedAt,
 	).Row()
 	if err := row.Scan(&article.ID); err != nil {
 		return err
-	}
-
-	// 处理标签关联
-	if len(article.Tags) > 0 {
-		if err := r.setArticleTags(tx, article.ID, article.Tags); err != nil {
-			return err
-		}
 	}
 
 	return tx.Commit().Error
@@ -75,13 +67,13 @@ func (r *ArticleRepository) GetByID(id uuid.UUID) (*models.Article, error) {
 		FROM articles a
 		WHERE a.id = $1 AND a.deleted_at IS NULL
 	`
-	
-	err := database.DB.Raw(query, id).Scan(article).Error
-	if err == sql.ErrNoRows {
-		return nil, errors.New("article not found")
+
+	result := database.DB.Raw(query, id).Scan(article)
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	if err != nil {
-		return nil, err
+	if result.RowsAffected == 0 {
+		return nil, errors.New("article not found")
 	}
 
 	// 加载作者信息
@@ -101,13 +93,13 @@ func (r *ArticleRepository) GetBySlug(slug string) (*models.Article, error) {
 		FROM articles a
 		WHERE a.slug = $1 AND a.deleted_at IS NULL
 	`
-	
-	err := database.DB.Raw(query, slug).Scan(article).Error
-	if err == sql.ErrNoRows {
-		return nil, errors.New("article not found")
+
+	result := database.DB.Raw(query, slug).Scan(article)
+	if result.Error != nil {
+		return nil, result.Error
 	}
-	if err != nil {
-		return nil, err
+	if result.RowsAffected == 0 {
+		return nil, errors.New("article not found")
 	}
 
 	if err := r.loadArticleRelations(article); err != nil {
@@ -290,6 +282,11 @@ func (r *ArticleRepository) List(query models.ArticleQuery) ([]*models.Article, 
 
 func (r *ArticleRepository) IncrementViewCount(id uuid.UUID) error {
 	query := `UPDATE articles SET view_count = view_count + 1 WHERE id = $1`
+	return database.DB.Exec(query, id).Error
+}
+
+func (r *ArticleRepository) IncrementLikeCount(id uuid.UUID) error {
+	query := `UPDATE articles SET like_count = like_count + 1 WHERE id = $1`
 	return database.DB.Exec(query, id).Error
 }
 

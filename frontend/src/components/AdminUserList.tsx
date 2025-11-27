@@ -29,12 +29,12 @@ export function AdminUserList() {
           }
         );
         if (res.data.code !== 200 || !Array.isArray(res.data.data)) {
-          throw new Error(res.data.message || "Failed to load users");
+          throw new Error(res.data.message || "用户列表加载失败");
         }
         setUsers(res.data.data ?? []);
         setTotal(res.data.meta?.total ?? 0);
       } catch (e: any) {
-        setError(e.message || "Unknown error");
+        setError(e.message || "发生未知错误");
       } finally {
         setLoading(false);
       }
@@ -45,27 +45,27 @@ export function AdminUserList() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (!token) {
-    return <p className="error">Please login as admin.</p>;
+    return <p className="error">请登录管理员账号。</p>;
   }
   if (!isAdmin) {
-    return <p className="error">Access denied. Admin only.</p>;
+    return <p className="error">无权限访问，仅管理员可用。</p>;
   }
 
   return (
     <div className="admin-section">
-      <h2>User Management</h2>
-      {loading && <p>Loading users...</p>}
+      <h2>用户管理</h2>
+      {loading && <p>用户数据加载中...</p>}
       {error && <p className="error">{error}</p>}
       {!loading && !error && (
         <>
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -76,7 +76,7 @@ export function AdminUserList() {
                   <td>{u.role}</td>
                   <td>{u.status}</td>
                   <td>
-                    <Link to={`/admin/users/${u.id}`}>View</Link>
+                    <Link to={`/admin/users/${u.id}`}>查看</Link>
                   </td>
                 </tr>
               ))}
@@ -92,11 +92,11 @@ export function AdminUserList() {
                   return next;
                 })
               }
-            >
-              Prev
+              >
+                上一页
             </button>
             <span>
-              Page {page} / {totalPages}
+                第 {page} / {totalPages} 页
             </span>
             <button
               disabled={page >= totalPages}
@@ -107,8 +107,8 @@ export function AdminUserList() {
                   return next;
                 })
               }
-            >
-              Next
+              >
+                下一页
             </button>
           </div>
         </>

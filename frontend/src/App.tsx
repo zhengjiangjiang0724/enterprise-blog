@@ -8,6 +8,7 @@ import { Profile } from "./components/Profile";
 import { AdminUserList } from "./components/AdminUserList";
 import { AdminUserDetail } from "./components/AdminUserDetail";
 import { useAuth } from "./hooks/useAuth";
+import { RequireAuth, RequireRole } from "./components/RouteGuards";
 
 export default function App() {
   const { token, user, logout } = useAuth();
@@ -17,14 +18,14 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="app-header-left">
-          <h1>Enterprise Blog</h1>
+          <h1>企业博客系统</h1>
           <nav>
-            <Link to="/">Articles</Link>
+            <Link to="/">文章列表</Link>
             {token && (
               <>
-                <Link to="/articles/new">New Article</Link>
-                <Link to="/profile">Profile</Link>
-                {isAdmin && <Link to="/admin/users">User Management</Link>}
+                <Link to="/articles/new">新建文章</Link>
+                <Link to="/profile">个人资料</Link>
+                {isAdmin && <Link to="/admin/users">用户管理</Link>}
               </>
             )}
           </nav>
@@ -33,14 +34,14 @@ export default function App() {
           {token ? (
             <>
               <span className="user-status">
-                {user?.username} ({user?.role || "user"})
+                {user?.username}（{user?.role || "用户"}）
               </span>
-              <button onClick={logout}>Logout</button>
+              <button onClick={logout}>退出登录</button>
             </>
           ) : (
             <div className="auth-links">
-              <Link to="/login">Login</Link>
-              <Link to="/register">Register</Link>
+              <Link to="/login">登录</Link>
+              <Link to="/register">注册</Link>
             </div>
           )}
         </div>
@@ -50,13 +51,48 @@ export default function App() {
         <Routes>
           <Route path="/" element={<ArticleList />} />
           <Route path="/articles/:id" element={<ArticleDetail />} />
-          <Route path="/articles/new" element={<ArticleEditor />} />
-          <Route path="/articles/:id/edit" element={<ArticleEditor />} />
+          <Route
+            path="/articles/new"
+            element={
+              <RequireAuth>
+                <ArticleEditor />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/articles/:id/edit"
+            element={
+              <RequireAuth>
+                <ArticleEditor />
+              </RequireAuth>
+            }
+          />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/admin/users" element={<AdminUserList />} />
-          <Route path="/admin/users/:id" element={<AdminUserDetail />} />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <Profile />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <RequireRole roles="admin">
+                <AdminUserList />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/users/:id"
+            element={
+              <RequireRole roles="admin">
+                <AdminUserDetail />
+              </RequireRole>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

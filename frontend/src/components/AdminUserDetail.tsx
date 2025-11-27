@@ -23,11 +23,11 @@ export function AdminUserDetail() {
           `/admin/users/${id}`
         );
         if (res.data.code !== 200 || !res.data.data) {
-          throw new Error(res.data.message || "Failed to load user");
+          throw new Error(res.data.message || "用户信息加载失败");
         }
         setProfile(res.data.data);
       } catch (e: any) {
-        setError(e.message || "Unknown error");
+        setError(e.message || "发生未知错误");
       } finally {
         setLoading(false);
       }
@@ -36,40 +36,40 @@ export function AdminUserDetail() {
   }, [token, isAdmin, id]);
 
   if (!token) {
-    return <p className="error">Please login as admin.</p>;
+    return <p className="error">请登录管理员账号。</p>;
   }
   if (!isAdmin) {
-    return <p className="error">Access denied. Admin only.</p>;
+    return <p className="error">无权限访问，仅管理员可用。</p>;
   }
 
   return (
     <div className="admin-section">
-      <h2>User Detail</h2>
-      {loading && <p>Loading user...</p>}
+      <h2>用户详情</h2>
+      {loading && <p>正在加载用户信息...</p>}
       {error && <p className="error">{error}</p>}
       {profile && (
         <div className="admin-card">
           <p>
-            <strong>Username:</strong> {profile.username}
+            <strong>用户名：</strong> {profile.username}
           </p>
           <p>
-            <strong>Email:</strong> {profile.email}
+            <strong>邮箱：</strong> {profile.email}
           </p>
           <p>
-            <strong>Role:</strong> {profile.role}
+            <strong>角色：</strong> {profile.role}
           </p>
           <p>
-            <strong>Status:</strong> {profile.status}
+            <strong>状态：</strong> {profile.status}
           </p>
           <p>
-            <strong>Bio:</strong> {profile.bio || "-"}
+            <strong>签名：</strong> {profile.bio || "-"}
           </p>
           <p>
-            <strong>Created:</strong>{" "}
+            <strong>创建时间：</strong>{" "}
             {new Date(profile.created_at).toLocaleString()}
           </p>
           <p>
-            <strong>Updated:</strong>{" "}
+            <strong>更新时间：</strong>{" "}
             {new Date(profile.updated_at).toLocaleString()}
           </p>
         </div>

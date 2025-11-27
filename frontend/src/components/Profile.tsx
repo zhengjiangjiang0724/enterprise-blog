@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import type { ApiResponse, UserProfile } from "../api/types";
 import { useAuth } from "../hooks/useAuth";
+import { useMessage } from "./MessageProvider";
 
 export function Profile() {
   const { token } = useAuth();
+  const { showSuccess, showError } = useMessage();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [form, setForm] = useState({
     username: "",
@@ -26,7 +28,7 @@ export function Profile() {
           "/users/profile"
         );
         if (res.data.code !== 200 || !res.data.data) {
-          throw new Error(res.data.message || "Failed to load profile");
+          throw new Error(res.data.message || "个人资料加载失败");
         }
         setProfile(res.data.data);
         setForm({
@@ -36,7 +38,7 @@ export function Profile() {
           bio: res.data.data.bio || ""
         });
       } catch (e: any) {
-        setError(e.message || "Unknown error");
+        setError(e.message || "发生未知错误");
       } finally {
         setLoading(false);
       }
@@ -69,12 +71,16 @@ export function Profile() {
         }
       );
       if (res.data.code !== 200 || !res.data.data) {
-        throw new Error(res.data.message || "Failed to update profile");
+        throw new Error(res.data.message || "更新个人资料失败");
       }
       setProfile(res.data.data);
-      setSuccess("Profile updated successfully");
+      setSuccess("个人资料已更新");
+      showSuccess("个人资料已更新");
     } catch (e: any) {
-      setError(e.response?.data?.message || e.message || "Unknown error");
+      const msg =
+        e.response?.data?.message || e.message || "发生未知错误";
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -83,21 +89,21 @@ export function Profile() {
   if (!token) {
     return (
       <div className="profile-form">
-        <p className="error">Please login to view your profile.</p>
+        <p className="error">请先登录以查看个人资料。</p>
       </div>
     );
   }
 
   return (
     <div className="profile-form">
-      <h2>Profile</h2>
-      {loading && !profile && <p>Loading profile...</p>}
+      <h2>个人资料</h2>
+      {loading && !profile && <p>个人资料加载中...</p>}
       {error && <p className="error">{error}</p>}
       {success && <p className="success">{success}</p>}
       {profile && (
         <form onSubmit={handleSubmit}>
           <label>
-            Username
+            用户名
             <input
               value={form.username}
               onChange={handleChange("username")}
@@ -105,7 +111,7 @@ export function Profile() {
             />
           </label>
           <label>
-            Email
+            邮箱
             <input
               type="email"
               value={form.email}
@@ -114,11 +120,11 @@ export function Profile() {
             />
           </label>
           <label>
-            Avatar URL
+            头像地址
             <input value={form.avatar} onChange={handleChange("avatar")} />
           </label>
           <label>
-            Bio
+            个性签名
             <textarea
               rows={4}
               value={form.bio}
@@ -126,7 +132,7 @@ export function Profile() {
             />
           </label>
           <button type="submit" className="button primary" disabled={loading}>
-            {loading ? "Saving..." : "Update Profile"}
+            {loading ? "保存中..." : "更新资料"}
           </button>
         </form>
       )}

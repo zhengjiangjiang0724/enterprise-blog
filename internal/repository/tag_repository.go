@@ -69,7 +69,7 @@ func (r *TagRepository) Update(tag *models.Tag) error {
 	if result.Error != nil {
 		return result.Error
 	}
-
+	
 	if result.RowsAffected == 0 {
 		return errors.New("tag not found")
 	}
@@ -82,7 +82,7 @@ func (r *TagRepository) Delete(id uuid.UUID) error {
 	if result.Error != nil {
 		return result.Error
 	}
-
+	
 	if result.RowsAffected == 0 {
 		return errors.New("tag not found")
 	}

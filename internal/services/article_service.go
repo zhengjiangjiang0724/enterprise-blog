@@ -1,8 +1,8 @@
 package services
 
 import (
-	"errors"
 	"fmt"
+	"strings"
 
 	"enterprise-blog/internal/models"
 	"enterprise-blog/internal/repository"
@@ -29,39 +29,14 @@ func NewArticleService(
 }
 
 func (s *ArticleService) Create(authorID uuid.UUID, req *models.ArticleCreate) (*models.Article, error) {
-	// 验证分类
-	if req.CategoryID != nil {
-		_, err := s.categoryRepo.GetByID(*req.CategoryID)
-		if err != nil {
-			return nil, errors.New("category not found")
-		}
-	}
-
-	// 验证标签
-	var tags []models.Tag
-	if len(req.TagIDs) > 0 {
-		for _, tagID := range req.TagIDs {
-			tag, err := s.tagRepo.GetByID(tagID)
-			if err != nil {
-				return nil, fmt.Errorf("tag %s not found", tagID)
-			}
-			tags = append(tags, *tag)
-		}
-	}
-
 	// 生成slug
 	slug := GenerateSlug(req.Title)
+	if slug == "" {
+		slug = "article"
+	}
 	// 检查slug是否已存在，如果存在则添加数字后缀
 	originalSlug := slug
 	counter := 1
-	for {
-		_, err := s.articleRepo.GetBySlug(slug)
-		if err != nil {
-			break // slug不存在，可以使用
-		}
-		slug = fmt.Sprintf("%s-%d", originalSlug, counter)
-		counter++
-	}
 
 	// 生成摘要
 	excerpt := req.Excerpt
@@ -79,19 +54,32 @@ func (s *ArticleService) Create(authorID uuid.UUID, req *models.ArticleCreate) (
 		CoverImage: req.CoverImage,
 		Status:     req.Status,
 		AuthorID:   authorID,
-		CategoryID: req.CategoryID,
-		Tags:       tags,
 	}
 
 	if article.Status == "" {
 		article.Status = models.StatusDraft
 	}
 
-	if err := s.articleRepo.Create(article); err != nil {
-		return nil, fmt.Errorf("failed to create article: %w", err)
+	// 创建时如果遇到 slug 唯一约束冲突，则自动追加数字后缀重试几次
+	const maxSlugRetries = 5
+	for retries := 0; retries < maxSlugRetries; retries++ {
+		article.Slug = slug
+
+		if err := s.articleRepo.Create(article); err != nil {
+			// 唯一约束冲突：尝试下一个 slug
+			if isSlugUniqueViolation(err) {
+				slug = fmt.Sprintf("%s-%d", originalSlug, counter)
+				counter++
+				continue
+			}
+			return nil, fmt.Errorf("failed to create article: %w", err)
+		}
+
+		// 创建成功，重新从数据库获取完整数据（含作者等关联）
+		return s.articleRepo.GetByID(article.ID)
 	}
 
-	return s.articleRepo.GetByID(article.ID)
+	return nil, fmt.Errorf("failed to create article: slug already exists after %d retries", maxSlugRetries)
 }
 
 func (s *ArticleService) GetByID(id uuid.UUID) (*models.Article, error) {
@@ -146,27 +134,7 @@ func (s *ArticleService) Update(id uuid.UUID, req *models.ArticleUpdate) (*model
 		article.Status = *req.Status
 	}
 
-	if req.CategoryID != nil {
-		if *req.CategoryID != uuid.Nil {
-			_, err := s.categoryRepo.GetByID(*req.CategoryID)
-			if err != nil {
-				return nil, errors.New("category not found")
-			}
-		}
-		article.CategoryID = req.CategoryID
-	}
-
-	if len(req.TagIDs) > 0 {
-		var tags []models.Tag
-		for _, tagID := range req.TagIDs {
-			tag, err := s.tagRepo.GetByID(tagID)
-			if err != nil {
-				return nil, fmt.Errorf("tag %s not found", tagID)
-			}
-			tags = append(tags, *tag)
-		}
-		article.Tags = tags
-	}
+	// 简化：不再更新分类和标签，文章仅保留基本信息
 
 	if err := s.articleRepo.Update(article); err != nil {
 		return nil, err
@@ -191,5 +159,20 @@ func (s *ArticleService) List(query models.ArticleQuery) ([]*models.Article, int
 	}
 
 	return s.articleRepo.List(query)
+}
+
+func (s *ArticleService) Like(id uuid.UUID) error {
+	return s.articleRepo.IncrementLikeCount(id)
+}
+
+// isSlugUniqueViolation 判断是否为 articles.slug 唯一约束冲突
+func isSlugUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	// 目前使用字符串包含判断，兼容 pq/pgx 等驱动的错误文案
+	msg := err.Error()
+	return strings.Contains(msg, "duplicate key value violates unique constraint") &&
+		strings.Contains(msg, "articles_slug_key")
 }
 

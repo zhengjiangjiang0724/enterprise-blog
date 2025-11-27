@@ -20,29 +20,10 @@ export function ArticleList() {
   const page = Number(searchParams.get("page") || 1);
   const pageSize = Number(searchParams.get("page_size") || 10);
   const search = searchParams.get("search") || "";
-  const categoryId = searchParams.get("category_id") || "";
-  const tagId = searchParams.get("tag_id") || "";
+  const categoryId = "";
+  const tagId = "";
 
-  // 加载分类和标签
-  useEffect(() => {
-    async function fetchCategoriesAndTags() {
-      try {
-        const [catRes, tagRes] = await Promise.all([
-          apiClient.get<PaginatedResponse<Category>>("/categories"),
-          apiClient.get<PaginatedResponse<Tag>>("/tags")
-        ]);
-        if (Array.isArray(catRes.data.data)) {
-          setCategories(catRes.data.data);
-        }
-        if (Array.isArray(tagRes.data.data)) {
-          setTags(tagRes.data.data);
-        }
-      } catch {
-        // 分类/标签加载失败不影响文章列表，静默处理或在需要时展示提示
-      }
-    }
-    fetchCategoriesAndTags();
-  }, []);
+  // 分类和标签过滤功能已简化，这里不再请求分类/标签列表
 
   useEffect(() => {
     async function fetchArticles() {
@@ -55,26 +36,24 @@ export function ArticleList() {
             params: {
               page,
               page_size: pageSize,
-              search,
-              category_id: categoryId || undefined,
-              tag_id: tagId || undefined
+              search
             }
           }
         );
         if (res.data.code !== 200 || !Array.isArray(res.data.data)) {
-          throw new Error(res.data.message || "Failed to load articles");
+          throw new Error(res.data.message || "文章加载失败");
         }
         setArticles(res.data.data ?? []);
         setTotal(res.data.meta?.total ?? 0);
       } catch (e: any) {
-        setError(e.message || "Unknown error");
+        setError(e.message || "发生未知错误");
       } finally {
         setLoading(false);
       }
     }
 
     fetchArticles();
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, categoryId, tagId]);
 
   const onSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,29 +71,7 @@ export function ArticleList() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    const next = new URLSearchParams(searchParams);
-    if (value) {
-      next.set("category_id", value);
-    } else {
-      next.delete("category_id");
-    }
-    next.set("page", "1");
-    setSearchParams(next);
-  };
-
-  const handleTagChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    const next = new URLSearchParams(searchParams);
-    if (value) {
-      next.set("tag_id", value);
-    } else {
-      next.delete("tag_id");
-    }
-    next.set("page", "1");
-    setSearchParams(next);
-  };
+  // 分类和标签筛选已移除
 
   return (
     <div className="article-list">
@@ -122,36 +79,13 @@ export function ArticleList() {
         <input
           name="search"
           defaultValue={search}
-          placeholder="Search articles..."
+          placeholder="搜索文章..."
         />
-        <select
-          value={categoryId}
-          onChange={handleCategoryChange}
-          className="filter-select"
-        >
-          <option value="">All Categories</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={tagId}
-          onChange={handleTagChange}
-          className="filter-select"
-        >
-          <option value="">All Tags</option>
-          {tags.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-        <button type="submit">Search</button>
+        {/* 分类和标签下拉已简化，仅保留搜索 */}
+        <button type="submit">搜索</button>
       </form>
 
-      {loading && <p>Loading articles...</p>}
+      {loading && <p>正在加载文章...</p>}
       {error && <p className="error">{error}</p>}
 
       {!loading && !error && (
@@ -163,21 +97,10 @@ export function ArticleList() {
                   <Link to={`/articles/${a.id}`}>{a.title}</Link>
                 </h2>
                 <p className="meta">
-                  {a.category && <span>Category: {a.category.name} · </span>}
-                  Views: {a.view_count} · Comments: {a.comment_count}
+                  阅读：{a.view_count} · 点赞：{a.like_count} · 评论：
+                  {a.comment_count}
                 </p>
-                {a.tags && a.tags.length > 0 && (
-                  <p className="meta">
-                    Tags:{" "}
-                    {a.tags.map((t, idx) => (
-                      <span key={t.id}>
-                        {t.name}
-                        {idx < a.tags!.length - 1 ? ", " : ""}
-                      </span>
-                    ))}
-                  </p>
-                )}
-                <p>{a.excerpt}</p>
+                <p>{a.excerpt || "（暂无摘要）"}</p>
               </li>
             ))}
           </ul>
@@ -192,11 +115,11 @@ export function ArticleList() {
                   return next;
                 })
               }
-            >
-              Prev
+              >
+                上一页
             </button>
             <span>
-              Page {page} / {totalPages}
+                第 {page} / {totalPages} 页
             </span>
             <button
               disabled={page >= totalPages}
@@ -207,8 +130,8 @@ export function ArticleList() {
                   return next;
                 })
               }
-            >
-              Next
+              >
+                下一页
             </button>
           </div>
         </>

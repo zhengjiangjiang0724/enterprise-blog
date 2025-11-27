@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
 import type { ApiResponse } from "../api/types";
 import { useAuth, AuthUser } from "../hooks/useAuth";
+import { Button } from "./Button";
+import { useMessage } from "./MessageProvider";
 
 interface LoginResponse {
   token: string;
@@ -17,6 +19,7 @@ interface LoginResponse {
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { showSuccess, showError } = useMessage();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +39,7 @@ export function Login() {
         }
       );
       if (res.data.code !== 200) {
-        throw new Error(res.data.message || "Login failed");
+        throw new Error(res.data.message || "登录失败");
       }
       const authUser: AuthUser | undefined = res.data.data.user
         ? {
@@ -56,9 +59,12 @@ export function Login() {
         // 忽略存储错误（如隐私模式）
       }
       login(res.data.data.token, authUser);
-      navigate("/profile");
+      showSuccess("登录成功");
+      navigate("/");
     } catch (e: any) {
-      setError(e.message || "Unknown error");
+      const msg = e.response?.data?.message || e.message || "发生未知错误";
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -66,10 +72,10 @@ export function Login() {
 
   return (
     <div className="auth-form">
-      <h2>Login</h2>
+      <h2>账号登录</h2>
       <form onSubmit={handleSubmit}>
         <label>
-          Email
+          邮箱
           <input
             type="email"
             value={email}
@@ -78,7 +84,7 @@ export function Login() {
           />
         </label>
         <label>
-          Password
+          密码
           <input
             type="password"
             value={password}
@@ -87,12 +93,12 @@ export function Login() {
           />
         </label>
         {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Login"}
-        </button>
+        <Button type="submit" loading={loading}>
+          登录
+        </Button>
       </form>
       <p className="auth-switch">
-        Don't have an account? <Link to="/register">Register</Link>
+        还没有账号？<Link to="/register">立即注册</Link>
       </p>
     </div>
   );

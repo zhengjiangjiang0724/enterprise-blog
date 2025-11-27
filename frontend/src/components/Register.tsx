@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
 import type { ApiResponse } from "../api/types";
 import { useAuth, AuthUser } from "../hooks/useAuth";
+import { Button } from "./Button";
+import { useMessage } from "./MessageProvider";
 
 interface RegisterResponse {
   id: string;
@@ -13,6 +15,7 @@ interface RegisterResponse {
 export function Register() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { showSuccess, showError } = useMessage();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -34,7 +37,7 @@ export function Register() {
         }
       );
       if (res.data.code !== 200) {
-        throw new Error(res.data.message || "Registration failed");
+        throw new Error(res.data.message || "注册失败");
       }
 
       // 注册后自动登录
@@ -63,9 +66,12 @@ export function Register() {
         login(loginRes.data.data.token, loginUser);
       }
 
+      showSuccess("注册并登录成功");
       navigate("/profile");
     } catch (e: any) {
-      setError(e.message || "Unknown error");
+      const msg = e.response?.data?.message || e.message || "发生未知错误";
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -73,10 +79,10 @@ export function Register() {
 
   return (
     <div className="auth-form">
-      <h2>Register</h2>
+      <h2>注册账号</h2>
       <form onSubmit={handleSubmit}>
         <label>
-          Username
+          用户名
           <input
             type="text"
             value={username}
@@ -85,7 +91,7 @@ export function Register() {
           />
         </label>
         <label>
-          Email
+          邮箱
           <input
             type="email"
             value={email}
@@ -94,7 +100,7 @@ export function Register() {
           />
         </label>
         <label>
-          Password
+          密码
           <input
             type="password"
             value={password}
@@ -103,12 +109,12 @@ export function Register() {
           />
         </label>
         {error && <p className="error">{error}</p>}
-        <button type="submit" disabled={loading}>
-          {loading ? "Registering..." : "Register"}
-        </button>
+        <Button type="submit" loading={loading}>
+          注册
+        </Button>
       </form>
       <p className="auth-switch">
-        Already have an account? <Link to="/login">Login</Link>
+        已有账号？<Link to="/login">前往登录</Link>
       </p>
     </div>
   );

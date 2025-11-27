@@ -28,7 +28,8 @@ type Article struct {
 	Author       *User         `json:"author,omitempty"`
 	CategoryID   *uuid.UUID    `json:"category_id,omitempty" db:"category_id"`
 	Category     *Category     `json:"category,omitempty"`
-	Tags         []Tag         `json:"tags,omitempty"`
+	// Tags 由单独的查询加载，不通过 GORM 关系映射
+	Tags         []Tag         `json:"tags,omitempty" gorm:"-"`
 	ViewCount    int           `json:"view_count" db:"view_count"`
 	LikeCount    int           `json:"like_count" db:"like_count"`
 	CommentCount int           `json:"comment_count" db:"comment_count"`
