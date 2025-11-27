@@ -59,6 +59,15 @@ HTTP层 (Handlers)
 - 标准化：JWT是行业标准
 - 可扩展：Token中可以包含用户信息
 
+#### 2.2.5 React + TypeScript + Vite（前端）
+
+前端采用 React + TypeScript + Vite 搭建 SPA，作为后端 REST API 的消费者：
+
+- 使用 React Router 构建路由与页面布局
+- 使用 Context + 自定义 Hook（`useAuth`）管理 JWT 与用户信息
+- 封装 Axios 客户端与拦截器，统一处理鉴权和错误
+- 实现 Markdown 编辑与预览、评论系统、点赞 / 收藏、全局消息提示等交互功能
+
 ## 3. 核心实现细节
 
 ### 3.1 用户认证实现
@@ -104,14 +113,24 @@ func (m *JWTManager) GenerateToken(userID uuid.UUID, username, role string) (str
 
 ### 3.2 数据库操作实现
 
-#### 3.2.1 使用GORM（结合原生 SQL）
+#### 3.2.1 使用 GORM（结合原生 SQL）
 
 本项目数据库层采用 **GORM + 原生 SQL** 的组合方式：
 - 使用 GORM 统一管理数据库连接、事务和模型映射
 - 复杂查询仍然大量使用原生 SQL（`db.Raw` / `db.Exec`），保留对 SQL 的完全控制
 - 在需要时利用 GORM 的链式 API 和钩子，简化常见 CRUD 场景
 
-#### 3.2.2 事务处理
+#### 3.2.2 PostgreSQL 全文搜索
+
+系统在文章列表和搜索功能中，使用 PostgreSQL 原生全文搜索能力：
+
+- 在 `articles` 表上增加 `search_vector` 字段，并创建 GIN 索引
+- 通过触发器在插入 / 更新时自动维护 `search_vector`
+- 查询时使用 `a.search_vector @@ to_tsquery('english', $query)` 进行匹配，`ts_rank` 进行相关性排序
+
+相较于 ILIKE 模糊匹配，原生全文搜索在大数据量场景下拥有更好的性能与匹配质量，同时不引入额外组件。
+
+#### 3.2.3 事务处理
 
 ```go
 func (r *ArticleRepository) Create(article *models.Article) error {
@@ -206,6 +225,25 @@ type Response struct {
 - Handler层：捕获错误，转换为HTTP响应
 - Service层：返回业务错误
 - Repository层：返回数据访问错误
+
+### 3.6 前端富文本与交互实现
+
+#### 3.6.1 Markdown 编辑与预览
+
+- 文章编辑页使用 `<textarea>` + `react-markdown` 组合，实现轻量的 Markdown 编辑器
+- 提供“编辑 / 预览”双栏切换，所见即所得
+- 文章详情页统一使用 `react-markdown` 渲染正文内容
+
+#### 3.6.2 评论、点赞与收藏
+
+- 评论：在文章详情页集成评论列表 + 发表评论表单，调用 `/articles/:id/comments` 接口，支持游客和登录用户评论
+- 点赞：提供 `POST /articles/:id/like` 接口和前端点赞按钮，实时更新 `like_count`
+- 收藏：前端通过本地存储维护收藏列表，点击“收藏 / 已收藏”按钮即可切换（不影响后端数据）
+
+#### 3.6.3 前端鉴权与全局消息
+
+- 使用 `AuthProvider + useAuth` 管理全局登录状态和用户信息，为受保护路由提供 `RequireAuth` / `RequireRole` 守卫
+- 使用 `MessageProvider + useMessage` 封装统一的全局消息条，在登录、注册、文章创建/更新/删除、个人资料更新等场景中展示成功/失败提示
 
 ## 4. 遇到的挑战和解决方案
 
