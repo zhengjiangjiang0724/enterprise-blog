@@ -201,24 +201,20 @@ func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery)
 	// 构建查询条件
 	where := []string{"a.deleted_at IS NULL"}
 	args := []interface{}{}
-	argIndex := 1
 
 	if query.Status != "" {
-		where = append(where, fmt.Sprintf("a.status = $%d", argIndex))
+		where = append(where, "a.status = ?")
 		args = append(args, query.Status)
-		argIndex++
 	}
 
 	if query.CategoryID != nil {
-		where = append(where, fmt.Sprintf("a.category_id = $%d", argIndex))
+		where = append(where, "a.category_id = ?")
 		args = append(args, *query.CategoryID)
-		argIndex++
 	}
 
 	if query.AuthorID != nil {
-		where = append(where, fmt.Sprintf("a.author_id = $%d", argIndex))
+		where = append(where, "a.author_id = ?")
 		args = append(args, *query.AuthorID)
-		argIndex++
 	}
 
 	// 处理搜索：使用全文搜索
@@ -227,15 +223,13 @@ func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery)
 		// 将搜索词转换为 tsquery 格式（支持多词搜索，用 & 连接）
 		searchTerms := strings.Fields(query.Search)
 		tsQuery = strings.Join(searchTerms, " & ")
-		where = append(where, fmt.Sprintf("a.search_vector @@ to_tsquery('english', $%d)", argIndex))
+		where = append(where, "a.search_vector @@ to_tsquery('english', ?)")
 		args = append(args, tsQuery)
-		argIndex++
 	}
 
 	if query.TagID != nil {
-		where = append(where, fmt.Sprintf("EXISTS (SELECT 1 FROM article_tags WHERE article_id = a.id AND tag_id = $%d)", argIndex))
+		where = append(where, "EXISTS (SELECT 1 FROM article_tags WHERE article_id = a.id AND tag_id = ?)")
 		args = append(args, *query.TagID)
-		argIndex++
 	}
 
 	whereClause := strings.Join(where, " AND ")
@@ -275,9 +269,9 @@ func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery)
 		FROM articles a
 		WHERE %s
 		ORDER BY %s
-		LIMIT $%d OFFSET $%d
-	`, whereClause, orderBy, argIndex, argIndex+1)
-	
+		LIMIT ? OFFSET ?
+	`, whereClause, orderBy)
+
 	args = append(args, query.PageSize, offset)
 	err = database.DB.WithContext(ctx).Raw(listQuery, args...).Scan(&articles).Error
 	if err != nil {

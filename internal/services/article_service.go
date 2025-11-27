@@ -259,7 +259,16 @@ func (s *ArticleService) SearchWithElasticsearch(query string, page, pageSize in
 
 	ids, total, err := search.SearchArticles(ctx, query, page, pageSize)
 	if err != nil {
-		return nil, 0, err
+		// 如果 ES 搜索失败，则回退到 PostgreSQL 全文搜索，保证接口可用
+		l := logger.GetLogger()
+		l.Warn().Err(err).Msg("Elasticsearch search failed, fallback to PostgreSQL fulltext search")
+
+		fallbackQuery := models.ArticleQuery{
+			Page:     page,
+			PageSize: pageSize,
+			Search:   query,
+		}
+		return s.List(fallbackQuery)
 	}
 	if len(ids) == 0 {
 		return []*models.Article{}, 0, nil
