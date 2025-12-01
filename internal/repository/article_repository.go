@@ -32,8 +32,8 @@ func (r *ArticleRepository) Create(ctx context.Context, article *models.Article)
 	}()
 
 	query := `
-		INSERT INTO articles (id, title, slug, content, excerpt, cover_image, status, author_id, view_count, like_count, comment_count, published_at, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		INSERT INTO articles (id, title, slug, content, excerpt, cover_image, status, author_id, category_id, view_count, like_count, comment_count, published_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING id
 	`
 	
@@ -48,7 +48,7 @@ func (r *ArticleRepository) Create(ctx context.Context, article *models.Article)
 	row := tx.Raw(
 		query,
 		article.ID, article.Title, article.Slug, article.Content, article.Excerpt,
-		article.CoverImage, article.Status, article.AuthorID,
+		article.CoverImage, article.Status, article.AuthorID, article.CategoryID,
 		article.ViewCount, article.LikeCount, article.CommentCount,
 		article.PublishedAt, article.CreatedAt, article.UpdatedAt,
 	).Row()
@@ -316,6 +316,42 @@ func (r *ArticleRepository) setArticleTags(tx *gorm.DB, articleID uuid.UUID, tag
 	}
 
 	return nil
+}
+
+// AddTags 为文章添加标签（用于创建后追加标签）
+func (r *ArticleRepository) AddTags(articleID uuid.UUID, tagIDs []uuid.UUID) error {
+	if len(tagIDs) == 0 {
+		return nil
+	}
+	query := `INSERT INTO article_tags (article_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
+	for _, tagID := range tagIDs {
+		if err := database.DB.Exec(query, articleID, tagID).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ReplaceTags 替换文章的全部标签（用于更新）
+func (r *ArticleRepository) ReplaceTags(articleID uuid.UUID, tagIDs []uuid.UUID) error {
+	tx := database.DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	if err := tx.Exec("DELETE FROM article_tags WHERE article_id = $1", articleID).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+	if len(tagIDs) > 0 {
+		query := `INSERT INTO article_tags (article_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
+		for _, tagID := range tagIDs {
+			if err := tx.Exec(query, articleID, tagID).Error; err != nil {
+				tx.Rollback()
+				return err
+			}
+		}
+	}
+	return tx.Commit().Error
 }
 
 func (r *ArticleRepository) loadArticleRelations(article *models.Article) error {

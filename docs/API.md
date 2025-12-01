@@ -101,13 +101,16 @@ GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&se
 **查询参数**:
 - `page`: 页码（默认1）
 - `page_size`: 每页数量（默认10）
-- `status`: 文章状态（draft/published/archived）
+- `status`: 文章状态（draft/review/published/archived），公开列表通常只使用 `published`
 - `category_id`: 分类ID
 - `tag_id`: 标签ID
 - `search`: 搜索关键词
 - `sort_by`: 排序字段（created_at/view_count等）
 - `order`: 排序方向（asc/desc）
 - `search_mode`: 可选，`es` 时使用 Elasticsearch 搜索；省略或其他值时使用 PostgreSQL 全文搜索
+
+说明：
+- 不传 `status` 时，公开文章列表接口默认只返回 `published` 状态的文章。
 
 **响应**:
 ```json
@@ -154,11 +157,17 @@ POST /articles
   "content": "文章内容",
   "excerpt": "文章摘要",
   "cover_image": "封面图片URL",
-  "status": "draft",
+  "status": "draft",   // 可选：draft（草稿）/ review（提交审核）/ published（直接发布，需要有权限）
   "category_id": "uuid",
   "tag_ids": ["uuid1", "uuid2"]
 }
 ```
+
+说明：
+- 普通作者通常通过“保存为草稿”或“提交审核”创建文章：
+  - 草稿：`status = "draft"`，仅作者自己和管理员可在后台看到。
+  - 提交审核：`status = "review"`，进入待审核队列，由管理员在后台审核后发布。
+- 管理员可以直接创建 `published` 状态的文章。
 
 #### 更新文章
 ```
@@ -179,11 +188,35 @@ DELETE /articles/:id
 GET /categories
 ```
 
+#### 管理后台 - 分类管理
+
+仅管理员可调用：
+
+```
+GET    /admin/categories        # 分类列表
+POST   /admin/categories        # 新建分类
+GET    /admin/categories/:id    # 分类详情
+PUT    /admin/categories/:id    # 更新分类
+DELETE /admin/categories/:id    # 删除分类
+```
+
 ### 标签相关
 
 #### 获取标签列表
 ```
 GET /tags
+```
+
+#### 管理后台 - 标签管理
+
+仅管理员可调用：
+
+```
+GET    /admin/tags        # 标签列表
+POST   /admin/tags        # 新建标签
+GET    /admin/tags/:id    # 标签详情
+PUT    /admin/tags/:id    # 更新标签
+DELETE /admin/tags/:id    # 删除标签
 ```
 
 ### 评论相关

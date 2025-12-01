@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { apiClient } from "../api/client";
-import type { ApiResponse, Article, ArticlePayload } from "../api/types";
+import type {
+  ApiResponse,
+  Article,
+  ArticlePayload,
+  Category,
+  Tag
+} from "../api/types";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./Button";
 import { useMessage } from "./MessageProvider";
 import ReactMarkdown from "react-markdown";
 
-const STATUS_OPTIONS = ["draft", "published", "archived"];
+const STATUS_OPTIONS = ["draft", "review", "published", "archived"];
 
 const emptyForm = {
   title: "",
@@ -23,19 +29,44 @@ export function ArticleEditor() {
   const { id } = useParams<{ id: string }>();
   const isEdit = useMemo(() => Boolean(id), [id]);
   const navigate = useNavigate();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { showSuccess, showError } = useMessage();
 
   const [form, setForm] = useState(emptyForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
     if (!token) {
       setError("请先登录后再创建或编辑文章。");
     }
   }, [token]);
+
+  // 加载分类和标签
+  useEffect(() => {
+    async function fetchMeta() {
+      try {
+        const [catRes, tagRes] = await Promise.all([
+          apiClient.get<ApiResponse<Category[]>>("/categories"),
+          apiClient.get<ApiResponse<Tag[]>>("/tags")
+        ]);
+        if (catRes.data.code === 200 && Array.isArray(catRes.data.data)) {
+          setCategories(catRes.data.data);
+        }
+        if (tagRes.data.code === 200 && Array.isArray(tagRes.data.data)) {
+          setTags(tagRes.data.data);
+        }
+      } catch {
+        // 静默失败，避免影响文章编辑
+      }
+    }
+    fetchMeta();
+  }, []);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -54,9 +85,10 @@ export function ArticleEditor() {
           excerpt: article.excerpt || "",
           cover_image: article.cover_image || "",
           status: article.status || "draft",
-          category_id: article.category_id || "",
-          tag_ids_text: article.tags?.map((t) => t.id).join(",") || ""
+          category_id: article.category?.id || "",
+          tag_ids_text: ""
         });
+        setSelectedTagIds(article.tags?.map((t) => t.id) || []);
       } catch (e: any) {
         setError(e.message || "发生未知错误");
       } finally {
@@ -79,20 +111,14 @@ export function ArticleEditor() {
       }));
     };
 
-  const parseTagIds = () => {
-    if (!form.tag_ids_text.trim()) return undefined;
-    return form.tag_ids_text
-      .split(",")
-      .map((tag) => tag.trim())
-      .filter(Boolean);
-  };
-
   const buildPayload = (): ArticlePayload => ({
     title: form.title,
     content: form.content,
     excerpt: form.excerpt,
     cover_image: form.cover_image,
-    status: form.status
+    status: form.status,
+    category_id: form.category_id || undefined,
+    tag_ids: selectedTagIds.length > 0 ? selectedTagIds : undefined
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -160,17 +186,66 @@ export function ArticleEditor() {
             onChange={handleChange("cover_image")}
           />
         </label>
+        {isEdit && (
+          <label>
+            发布状态
+            <select value={form.status} onChange={handleChange("status")}>
+              {STATUS_OPTIONS.map((status) => (
+                <option value={status} key={status}>
+                  {status === "draft"
+                    ? "草稿"
+                    : status === "review"
+                    ? "待审核"
+                    : status === "published"
+                    ? "已发布"
+                    : "已归档"}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {/* 分类选择 */}
         <label>
-          发布状态
-          <select value={form.status} onChange={handleChange("status")}>
-            {STATUS_OPTIONS.map((status) => (
-              <option value={status} key={status}>
-                {status}
+          分类
+          <select
+            value={form.category_id}
+            onChange={handleChange("category_id")}
+          >
+            <option value="">未选择</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
               </option>
             ))}
           </select>
         </label>
-        {/* 分类和标签功能已简化，暂不在表单中配置 */}
+        {/* 标签多选 */}
+        <div className="tag-selector">
+          <span>标签（可多选）</span>
+          <div className="tag-list">
+            {tags.map((t) => {
+              const checked = selectedTagIds.includes(t.id);
+              return (
+                <label key={t.id} className="tag-item">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => {
+                      const { checked } = e.target;
+                      setSelectedTagIds((prev) =>
+                        checked
+                          ? [...prev, t.id]
+                          : prev.filter((id) => id !== t.id)
+                      );
+                    }}
+                  />
+                  <span>{t.name}</span>
+                </label>
+              );
+            })}
+            {tags.length === 0 && <span className="meta">暂无标签，可在后台创建。</span>}
+          </div>
+        </div>
         <div className="editor-section">
           <div className="editor-header">
             <span>正文内容</span>
@@ -225,14 +300,34 @@ export function ArticleEditor() {
           </Button>
           <Button
             type="submit"
+            variant="secondary"
+            loading={loading}
+            style={{ marginLeft: "8px" }}
+            onClick={() =>
+              setForm((prev) => ({ ...prev, status: "review" }))
+            }
+          >
+            提交审核
+          </Button>
+          <Button
+            type="submit"
             variant="primary"
             loading={loading}
             style={{ marginLeft: "8px" }}
             onClick={() =>
-              setForm((prev) => ({ ...prev, status: "published" }))
+              setForm((prev) => ({
+                ...prev,
+                status: isAdmin ? "published" : "review"
+              }))
             }
           >
-            {isEdit ? "更新并发布" : "发布文章"}
+            {isAdmin
+              ? isEdit
+                ? "更新并发布"
+                : "直接发布"
+              : isEdit
+              ? "提交审核（更新）"
+              : "提交审核并创建"}
           </Button>
         </div>
       </form>

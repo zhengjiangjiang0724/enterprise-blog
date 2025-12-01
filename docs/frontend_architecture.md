@@ -5,7 +5,7 @@
 前端项目是企业级博客系统的独立 Web 客户端，主要职责：
 
 - 提供文章浏览、搜索、详情查看等功能
-- 提供文章创建 / 编辑（Markdown 编辑与预览、草稿 / 发布流程）
+- 提供文章创建 / 编辑（Markdown 编辑与预览、草稿 / 审核 / 发布流程）
 - 提供评论、点赞、收藏等交互能力
 - 提供用户登录 / 注册 / 个人资料管理以及后台用户管理入口
 - 作为后端 REST API 的消费者
@@ -37,13 +37,17 @@ frontend/
     ├── components/
     │   ├── ArticleDetail.tsx   # 文章详情（Markdown 渲染、点赞、收藏、评论）
     │   ├── ArticleList.tsx     # 文章列表 + 搜索 + 分页 + 统计展示
-    │   ├── ArticleEditor.tsx   # 新建/编辑文章（Markdown 编辑 & 预览、草稿/发布）
+    │   ├── ArticleEditor.tsx   # 新建/编辑文章（Markdown 编辑 & 预览、草稿 / 审核 / 发布）
     │   ├── CommentSection.tsx  # 评论列表与发表评论表单
     │   ├── Login.tsx           # 登录表单
     │   ├── Register.tsx        # 注册表单
     │   ├── Profile.tsx         # 用户资料查看与修改
     │   ├── AdminUserList.tsx   # 后台用户列表
     │   ├── AdminUserDetail.tsx # 后台用户详情
+    │   ├── AdminArticleList.tsx   # 后台文章列表与筛选
+    │   ├── AdminArticleDetail.tsx # 后台文章详情与状态流转（草稿 / 待审核 / 发布 / 归档）
+    │   ├── AdminCategoryList.tsx  # 后台分类管理（增删改）
+    │   ├── AdminTagList.tsx       # 后台标签管理（增删改）
     │   ├── Button.tsx          # 通用按钮组件（primary / secondary / danger / ghost）
     │   ├── MessageProvider.tsx # 全局消息提示（成功 / 错误）
     │   └── RouteGuards.tsx     # 路由守卫组件（RequireAuth / RequireRole）
@@ -120,7 +124,7 @@ frontend/
   - 请求：`GET /articles/:id/comments` 分页加载评论
   - 请求：`POST /articles/:id/comments` 发表评论（登录用户自动带用户名 / 邮箱）
 
-### 3.5 新建 / 编辑文章（Markdown + 草稿箱 / 发布流程）
+### 3.5 新建 / 编辑文章（Markdown + 草稿箱 / 审核 / 发布流程）
 
 后端 API：
 
@@ -131,9 +135,18 @@ frontend/
 
 - `components/ArticleEditor.tsx`
   - 支持 `/articles/new` 与 `/articles/:id/edit`
-  - 表单字段：标题、摘要、封面、状态、正文内容
+  - 表单字段：标题、摘要、封面、状态、正文内容、分类、标签
   - 使用 `react-markdown` 提供“编辑 / 预览”模式切换
-  - 提供“保存为草稿”和“发布文章 / 更新并发布”两个按钮，通过 `status` 字段控制文章状态
+  - 提供“保存为草稿”“提交审核”和“发布文章 / 更新并发布”三个按钮，通过 `status` 字段控制文章状态：
+    - 草稿：`draft`，仅作者与管理员在后台可见
+    - 待审核：`review`，仅管理员在后台审核列表中可见
+    - 已发布：`published`，公开文章列表和详情可见
+  - 分类下拉选项与标签多选数据来源：
+    - 分类：`GET /api/v1/categories`
+    - 标签：`GET /api/v1/tags`
+  - 提交文章时会携带：
+    - `category_id`：选中的分类 ID（可为空）
+    - `tag_ids`：选中的标签 ID 列表（可为空）
   - 登录状态由 `RequireAuth` / `useAuth` 共同校验，未登录用户会被重定向到登录页
 
 ### 3.6 导航与菜单

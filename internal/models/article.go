@@ -11,9 +11,10 @@ import (
 type ArticleStatus string
 
 const (
-	StatusDraft     ArticleStatus = "draft"
-	StatusPublished ArticleStatus = "published"
-	StatusArchived  ArticleStatus = "archived"
+	StatusDraft        ArticleStatus = "draft"
+	StatusReview       ArticleStatus = "review"
+	StatusPublished    ArticleStatus = "published"
+	StatusArchived     ArticleStatus = "archived"
 )
 
 type Article struct {

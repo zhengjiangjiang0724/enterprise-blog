@@ -145,3 +145,26 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, models.Paginated(users, query.Page, query.PageSize, total))
 }
 
+// AdminUpdateUser 仅管理员可用，用于更新任意用户的角色 / 状态等信息
+func (h *UserHandler) AdminUpdateUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, "invalid user id"))
+		return
+	}
+
+	var req models.UserUpdate
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	user, err := h.userService.Update(id, &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Success(user))
+}
+

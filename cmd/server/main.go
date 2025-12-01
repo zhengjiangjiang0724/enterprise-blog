@@ -74,6 +74,7 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	tagHandler := handlers.NewTagHandler(tagService)
 	commentHandler := handlers.NewCommentHandler(commentService)
+	adminHandler := handlers.NewAdminHandler()
 
 	// 设置Gin模式
 	gin.SetMode(config.AppConfig.Server.Mode)
@@ -136,13 +137,31 @@ func main() {
 		admin.Use(middleware.AuthMiddleware(jwtMgr))
 		admin.Use(middleware.RoleMiddleware("admin"))
 		{
+			// 仪表盘 & 系统配置
+			admin.GET("/dashboard", adminHandler.Dashboard)
+			admin.GET("/system/config", adminHandler.SystemConfig)
+
 			admin.GET("/users", userHandler.ListUsers)
 			admin.GET("/users/:id", userHandler.GetUser)
+			admin.PUT("/users/:id", userHandler.AdminUpdateUser)
 			// 管理后台文章管理
 			admin.GET("/articles", articleHandler.AdminList)
 			admin.GET("/articles/:id", articleHandler.AdminGetByID)
 			admin.PUT("/articles/:id/status", articleHandler.AdminUpdateStatus)
 			admin.DELETE("/articles/:id", articleHandler.AdminDelete)
+
+			// 管理后台分类与标签管理
+			admin.GET("/categories", categoryHandler.List)
+			admin.POST("/categories", categoryHandler.Create)
+			admin.GET("/categories/:id", categoryHandler.GetByID)
+			admin.PUT("/categories/:id", categoryHandler.Update)
+			admin.DELETE("/categories/:id", categoryHandler.Delete)
+
+			admin.GET("/tags", tagHandler.List)
+			admin.POST("/tags", tagHandler.Create)
+			admin.GET("/tags/:id", tagHandler.GetByID)
+			admin.PUT("/tags/:id", tagHandler.Update)
+			admin.DELETE("/tags/:id", tagHandler.Delete)
 		}
 	}
 

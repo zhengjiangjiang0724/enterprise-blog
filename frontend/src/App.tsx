@@ -9,6 +9,10 @@ import { AdminUserList } from "./components/AdminUserList";
 import { AdminUserDetail } from "./components/AdminUserDetail";
 import { AdminArticleList } from "./components/AdminArticleList";
 import { AdminArticleDetail } from "./components/AdminArticleDetail";
+import { AdminDashboard } from "./components/AdminDashboard";
+import { AdminSettings } from "./components/AdminSettings";
+import { AdminCategoryList } from "./components/AdminCategoryList";
+import { AdminTagList } from "./components/AdminTagList";
 import { useAuth } from "./hooks/useAuth";
 import { RequireAuth, RequireRole } from "./components/RouteGuards";
 
@@ -29,8 +33,12 @@ export default function App() {
                 <Link to="/profile">个人资料</Link>
                 {isAdmin && (
                   <>
+                    <Link to="/admin/dashboard">仪表盘</Link>
                     <Link to="/admin/articles">文章管理</Link>
+                    <Link to="/admin/categories">分类管理</Link>
+                    <Link to="/admin/tags">标签管理</Link>
                     <Link to="/admin/users">用户管理</Link>
+                    <Link to="/admin/settings">系统配置</Link>
                   </>
                 )}
               </>
@@ -85,6 +93,14 @@ export default function App() {
             }
           />
           <Route
+            path="/admin/dashboard"
+            element={
+              <RequireRole roles="admin">
+                <AdminDashboard />
+              </RequireRole>
+            }
+          />
+          <Route
             path="/admin/users"
             element={
               <RequireRole roles="admin">
@@ -113,6 +129,30 @@ export default function App() {
             element={
               <RequireRole roles="admin">
                 <AdminArticleDetail />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/categories"
+            element={
+              <RequireRole roles="admin">
+                <AdminCategoryList />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/tags"
+            element={
+              <RequireRole roles="admin">
+                <AdminTagList />
+              </RequireRole>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <RequireRole roles="admin">
+                <AdminSettings />
               </RequireRole>
             }
           />

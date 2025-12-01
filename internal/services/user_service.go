@@ -137,6 +137,10 @@ func (s *UserService) Update(id uuid.UUID, req *models.UserUpdate) (*models.User
 		user.Bio = *req.Bio
 	}
 
+	if req.Status != nil {
+		user.Status = *req.Status
+	}
+
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
 	}
@@ -180,4 +184,3 @@ func GenerateSlug(text string) string {
 	slug = strings.ReplaceAll(slug, "_", "-")
 	return slug
 }
-

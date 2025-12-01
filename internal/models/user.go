@@ -45,6 +45,7 @@ type UserUpdate struct {
 	Role     *UserRole `json:"role,omitempty"`
 	Avatar   *string   `json:"avatar,omitempty"`
 	Bio      *string   `json:"bio,omitempty"`
+	Status   *string   `json:"status,omitempty"`
 }
 
 type UserLogin struct {

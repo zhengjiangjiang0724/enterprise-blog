@@ -132,6 +132,14 @@ export function AdminArticleDetail() {
             </Button>
             <Button
               type="button"
+              variant="secondary"
+              disabled={updating}
+              onClick={() => handleStatusChange("review")}
+            >
+              设为待审核
+            </Button>
+            <Button
+              type="button"
               variant="primary"
               disabled={updating}
               onClick={() => handleStatusChange("published")}

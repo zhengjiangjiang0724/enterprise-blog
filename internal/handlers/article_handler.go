@@ -33,6 +33,18 @@ func (h *ArticleHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// 非管理员创建文章时不允许直接发布，只能是草稿或待审核
+	if roleVal, ok := c.Get("role"); ok {
+		if roleStr, ok2 := roleVal.(string); ok2 && roleStr != string(models.RoleAdmin) {
+			if req.Status == models.StatusReview {
+				// 保留“待审核”状态
+			} else {
+				// 其余情况一律归为草稿
+				req.Status = models.StatusDraft
+			}
+		}
+	}
+
 	article, err := h.articleService.Create(userID.(uuid.UUID), &req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
@@ -83,6 +95,19 @@ func (h *ArticleHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// 非管理员更新文章时不允许自行改为已发布 / 归档，仅允许草稿或待审核
+	if roleVal, ok := c.Get("role"); ok && req.Status != nil {
+		if roleStr, ok2 := roleVal.(string); ok2 && roleStr != string(models.RoleAdmin) {
+			if *req.Status == models.StatusReview || *req.Status == models.StatusDraft {
+				// 保留可允许的状态
+			} else {
+				// 其余状态重置为草稿
+				draft := models.StatusDraft
+				req.Status = &draft
+			}
+		}
+	}
+
 	article, err := h.articleService.Update(id, &req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
@@ -127,6 +152,11 @@ func (h *ArticleHandler) List(c *gin.Context) {
 	if err := c.ShouldBindQuery(&query); err != nil {
 		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
 		return
+	}
+
+	// 公开文章列表：默认只展示已发布文章
+	if query.Status == "" {
+		query.Status = models.StatusPublished
 	}
 
 	// 支持通过 search_mode=es 切换到 Elasticsearch 搜索

@@ -67,6 +67,10 @@ func (s *ArticleService) Create(authorID uuid.UUID, req *models.ArticleCreate) (
 		article.Status = models.StatusDraft
 	}
 
+	if req.CategoryID != nil {
+		article.CategoryID = req.CategoryID
+	}
+
 	// 创建时如果遇到 slug 唯一约束冲突，则自动追加数字后缀重试几次
 	const maxSlugRetries = 5
 	for retries := 0; retries < maxSlugRetries; retries++ {
@@ -82,23 +86,31 @@ func (s *ArticleService) Create(authorID uuid.UUID, req *models.ArticleCreate) (
 			return nil, fmt.Errorf("failed to create article: %w", err)
 		}
 
-		// 创建成功，重新从数据库获取完整数据（含作者等关联）
-		created, err := s.articleRepo.GetByIDWithContext(context.Background(), article.ID)
-		if err == nil {
-			// 写入详情缓存，并清理列表缓存
-			_ = cacheArticleDetail(created)
-			clearArticleListCache()
-
-			// 异步同步到 Elasticsearch（如果已启用）
-			go func(a *models.Article) {
-				ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-				defer cancel()
-				_ = search.IndexArticle(ctx, a)
-			}(created)
-
-			return created, nil
+		// 如果需要标签，追加标签关系
+		if len(req.TagIDs) > 0 {
+			if err := s.articleRepo.AddTags(article.ID, req.TagIDs); err != nil {
+				return nil, fmt.Errorf("failed to add article tags: %w", err)
+			}
 		}
-		return created, err
+
+		// 创建成功，重新从数据库获取完整数据（含作者、分类、标签等关联）
+		created, err := s.articleRepo.GetByIDWithContext(context.Background(), article.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		// 写入详情缓存，并清理列表缓存
+		_ = cacheArticleDetail(created)
+		clearArticleListCache()
+
+		// 异步同步到 Elasticsearch（如果已启用）
+		go func(a *models.Article) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = search.IndexArticle(ctx, a)
+		}(created)
+
+		return created, nil
 	}
 
 	return nil, fmt.Errorf("failed to create article: slug already exists after %d retries", maxSlugRetries)
@@ -173,11 +185,19 @@ func (s *ArticleService) Update(id uuid.UUID, req *models.ArticleUpdate) (*model
 	if req.Status != nil {
 		article.Status = *req.Status
 	}
-
-	// 简化：不再更新分类和标签，文章仅保留基本信息
+	if req.CategoryID != nil {
+		article.CategoryID = req.CategoryID
+	}
 
 	if err := s.articleRepo.Update(article); err != nil {
 		return nil, err
+	}
+
+	// 如传入标签 ID，则替换标签关系
+	if len(req.TagIDs) > 0 {
+		if err := s.articleRepo.ReplaceTags(article.ID, req.TagIDs); err != nil {
+			return nil, err
+		}
 	}
 
 	updated, err := s.articleRepo.GetByIDWithContext(context.Background(), id)

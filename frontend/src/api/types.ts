@@ -62,6 +62,52 @@ export interface UserProfile {
   updated_at: string;
 }
 
+export interface AdminDashboardStats {
+  total_users: number;
+  total_articles: number;
+  published_articles: number;
+  draft_articles: number;
+  archived_articles: number;
+  total_comments: number;
+  total_article_views: number;
+  total_article_likes: number;
+  today_published_count: number;
+}
+
+export interface SystemConfigInfo {
+  server: {
+    host: string;
+    port: string;
+    mode: string;
+  };
+  database: {
+    host: string;
+    port: string;
+    user: string;
+    name: string;
+    max_open_conns: number;
+    max_idle_conns: number;
+    conn_max_lifetime_minutes: number;
+  };
+  redis: {
+    host: string;
+    port: string;
+    db: number;
+  };
+  jwt: {
+    expire_hours: number;
+  };
+  log: {
+    level: string;
+    file: string;
+  };
+  upload: {
+    dir: string;
+    max_size: number;
+    exts: string[];
+  };
+}
+
 export interface ArticlePayload {
   title: string;
   content: string;

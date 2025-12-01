@@ -96,6 +96,7 @@ export function AdminArticleList() {
         >
           <option value="">全部状态</option>
           <option value="draft">草稿</option>
+          <option value="review">待审核</option>
           <option value="published">已发布</option>
           <option value="archived">已归档</option>
         </select>
