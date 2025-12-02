@@ -53,7 +53,36 @@ func (s *SMSService) LoginWithPhone(phone, code string) (string, *models.User, e
 	return "", user, nil
 }
 
-// SendCode 发送验证码（当前为模拟实现，实际应接入短信服务商）
+/**
+ * @function SendCode
+ * @description 发送短信验证码。
+ *
+ * @param {string} phone - 手机号码
+ *
+ * @returns {error} 如果发送失败则返回错误
+ *
+ * @remarks
+ * - **当前实现**：模拟实现，仅在日志中输出验证码（开发/测试环境）
+ * - **生产环境**：必须接入真实的短信服务商（如阿里云、腾讯云等）
+ * - **防刷机制**：1分钟内只能发送一次验证码
+ * - **验证码有效期**：5分钟
+ * - **存储方式**：同时存储到数据库和 Redis（Redis 用于快速验证）
+ *
+ * @todo
+ * - 接入短信服务商 API（阿里云、腾讯云、Twilio 等）
+ * - 实现服务商接口抽象，支持多种服务商切换
+ * - 添加发送失败重试机制
+ * - 添加发送量监控和告警
+ *
+ * @see
+ * - [短信接入指南](../../docs/SMS_INTEGRATION.md) - 详细的接入步骤和示例代码
+ *
+ * @interview_points
+ * - 为什么需要接入短信服务商？（合规、用户体验、安全性）
+ * - 如何实现服务商切换？（接口抽象，依赖注入）
+ * - 如何防止验证码被刷？（频率限制、IP限制）
+ * - 验证码存储在哪里？（数据库持久化，Redis 加速验证）
+ */
 func (s *SMSService) SendCode(phone string) error {
 	// 检查最近1分钟内是否已发送过验证码（防刷）
 	oneMinAgo := time.Now().Add(-1 * time.Minute)
