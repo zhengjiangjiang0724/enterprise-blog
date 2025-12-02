@@ -13,6 +13,8 @@ import { AdminDashboard } from "./components/AdminDashboard";
 import { AdminSettings } from "./components/AdminSettings";
 import { AdminCategoryList } from "./components/AdminCategoryList";
 import { AdminTagList } from "./components/AdminTagList";
+import { ImageUpload } from "./components/ImageUpload";
+import { ImageList } from "./components/ImageList";
 import { useAuth } from "./hooks/useAuth";
 import { RequireAuth, RequireRole } from "./components/RouteGuards";
 
@@ -30,6 +32,8 @@ export default function App() {
             {token && (
               <>
                 <Link to="/articles/new">新建文章</Link>
+                <Link to="/images/upload">上传图片</Link>
+                <Link to="/images">图片管理</Link>
                 <Link to="/profile">个人资料</Link>
                 {isAdmin && (
                   <>
@@ -154,6 +158,22 @@ export default function App() {
               <RequireRole roles="admin">
                 <AdminSettings />
               </RequireRole>
+            }
+          />
+          <Route
+            path="/images/upload"
+            element={
+              <RequireAuth>
+                <ImageUpload />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/images"
+            element={
+              <RequireAuth>
+                <ImageList />
+              </RequireAuth>
             }
           />
           <Route path="*" element={<Navigate to="/" replace />} />

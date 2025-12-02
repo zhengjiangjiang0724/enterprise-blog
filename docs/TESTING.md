@@ -35,6 +35,8 @@ go test ./tests/unit/... -cover
 - 使用 `testify/mock` 创建mock对象
 - 使用 `testify/assert` 进行断言
 
+**注意**: 当前 `TestUserService_Register` 和 `TestUserService_Login` 测试被跳过，因为 `UserService` 使用具体类型 `*repository.UserRepository` 而非接口，无法直接使用 mock。这些功能通过集成测试 (`tests/integration/api_test.go`) 进行验证。如需进行单元测试，需要重构 `UserService` 使用接口。
+
 ### 2. 集成测试 (Integration Tests)
 
 集成测试测试完整的API端点，需要真实的数据库和Redis连接。
@@ -71,7 +73,7 @@ go test ./tests/integration/... -v
 
 E2E测试使用Playwright在真实浏览器中测试完整的用户流程。
 
-**位置**: `tests/e2e/`
+**位置**: `frontend/tests/e2e/`（测试文件）和 `frontend/playwright.config.ts`（配置文件）
 
 **特点**:
 - 在真实浏览器中运行
@@ -81,46 +83,70 @@ E2E测试使用Playwright在真实浏览器中测试完整的用户流程。
 
 **运行方式**:
 ```bash
-# 安装Playwright依赖
-cd frontend
-npm install
-npx playwright install
+# 首次运行需要先安装前端依赖和Playwright浏览器
+make install-frontend
 
 # 运行E2E测试（需要先启动前后端服务）
-npm run test:e2e
+make test-e2e
+# 或
+cd frontend && npm run test:e2e
 
-# 或使用Playwright CLI
-npx playwright test
+# 使用UI模式运行测试（可视化）
+cd frontend && npm run test:e2e:ui
 
 # 查看测试报告
-npx playwright show-report
+cd frontend && npx playwright show-report
 ```
 
 **环境要求**:
 - 前端开发服务器运行在 `http://localhost:3000`
-- 后端API运行在 `http://localhost:8080`
-- 测试数据库和Redis
+- 后端API服务器运行在 `http://localhost:8080`
+- 数据库和Redis服务已启动
+- **重要**: 确保数据库中有测试数据（至少有一篇文章），否则部分测试会被跳过
 
-**示例**:
-- `auth.spec.ts`: 测试用户注册、登录流程
-- `articles.spec.ts`: 测试文章列表、详情、创建等功能
-- `comments.spec.ts`: 测试评论功能
+**测试文件**:
+- `frontend/tests/e2e/auth.spec.ts`: 用户认证测试（注册、登录）
+- `frontend/tests/e2e/articles.spec.ts`: 文章功能测试（列表、详情、创建、搜索）
+- `frontend/tests/e2e/comments.spec.ts`: 评论功能测试（查看、发表）
+
+**配置文件**:
+- `frontend/playwright.config.ts`: Playwright 配置文件
+
+**测试覆盖**:
+- 用户认证流程（注册、登录、登录失败）
+- 文章功能（列表、详情、创建、搜索）
+- 评论功能（查看、发表）
+- 支持多个浏览器（Chromium、Firefox、WebKit）
 
 ## 测试覆盖率
 
 ### 目标覆盖率
 
-- **单元测试**: 80%+
+- **单元测试**: 80%+（当前部分测试被跳过，实际覆盖率较低）
 - **集成测试**: 覆盖所有主要API端点
 - **E2E测试**: 覆盖主要用户流程
 
 ### 查看覆盖率
 
 ```bash
-# 生成覆盖率报告
+# 生成覆盖率报告（所有包）
+make test-coverage
+# 或
 go test ./... -coverprofile=coverage.out
-go tool cover -html=coverage.out
+go tool cover -html=coverage.out -o coverage.html
+
+# 查看特定包的覆盖率
+go test ./internal/models/... -cover
+go test ./internal/services/... -cover
+
+# 查看覆盖率详情
+go tool cover -func=coverage.out
 ```
+
+**注意**: 
+- 当前 `tests/unit/` 中的部分测试被跳过（因为需要接口重构），所以单元测试覆盖率显示较低
+- 实际业务逻辑通过集成测试进行验证，覆盖率更高
+- `TestUserPasswordHashing` 测试正常运行，覆盖了密码哈希功能
 
 ## 测试最佳实践
 

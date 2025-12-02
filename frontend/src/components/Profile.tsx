@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiClient } from "../api/client";
 import type { ApiResponse, UserProfile } from "../api/types";
 import { useAuth } from "../hooks/useAuth";
+import { BackButton } from "./BackButton";
 import { useMessage } from "./MessageProvider";
 
 export function Profile() {
@@ -151,6 +152,9 @@ export function Profile() {
 
   return (
     <div className="profile-form">
+      <div style={{ marginBottom: "16px" }}>
+        <BackButton to="/" label="返回首页" />
+      </div>
       <h2>个人资料</h2>
       {loading && !profile && <p>个人资料加载中...</p>}
       {error && <p className="error">{error}</p>}

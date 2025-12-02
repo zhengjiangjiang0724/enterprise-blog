@@ -10,6 +10,8 @@ import type {
 } from "../api/types";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./Button";
+import { BackButton } from "./BackButton";
+import { ImagePicker } from "./ImagePicker";
 import { useMessage } from "./MessageProvider";
 import ReactMarkdown from "react-markdown";
 
@@ -39,6 +41,7 @@ export function ArticleEditor() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showImagePicker, setShowImagePicker] = useState(false);
   const isAdmin = user?.role === "admin";
 
   useEffect(() => {
@@ -165,6 +168,9 @@ export function ArticleEditor() {
 
   return (
     <div className="article-form">
+      <div style={{ marginBottom: "16px" }}>
+        <BackButton to={isEdit && id ? `/articles/${id}` : "/"} label="返回" />
+      </div>
       <h2>{isEdit ? "编辑文章" : "创建文章"}</h2>
       <form onSubmit={handleSubmit}>
         <label>
@@ -180,12 +186,52 @@ export function ArticleEditor() {
           <input value={form.excerpt} onChange={handleChange("excerpt")} />
         </label>
         <label>
-          封面图片地址
-          <input
-            value={form.cover_image}
-            onChange={handleChange("cover_image")}
-          />
+          封面图片
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <input
+              value={form.cover_image}
+              onChange={handleChange("cover_image")}
+              placeholder="图片URL或从图片库选择"
+              style={{ flex: 1 }}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setShowImagePicker(true)}
+            >
+              从图片库选择
+            </Button>
+          </div>
+          {form.cover_image && (
+            <div style={{ marginTop: "8px" }}>
+              <img
+                src={form.cover_image.startsWith("http") 
+                  ? form.cover_image 
+                  : `${import.meta.env.VITE_API_BASE_URL?.replace("/api/v1", "") || "http://localhost:8080"}${form.cover_image}`}
+                alt="封面预览"
+                style={{
+                  maxWidth: "300px",
+                  maxHeight: "200px",
+                  borderRadius: "8px",
+                  border: "1px solid #e5e7eb"
+                }}
+                onError={(e) => {
+                  // 图片加载失败时显示占位符
+                  (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Crect fill='%23f3f4f6' width='300' height='200'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='14' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3E图片加载失败%3C/text%3E%3C/svg%3E";
+                }}
+              />
+            </div>
+          )}
         </label>
+        <ImagePicker
+          value={form.cover_image}
+          onChange={(url) => {
+            setForm((prev) => ({ ...prev, cover_image: url }));
+            setShowImagePicker(false);
+          }}
+          open={showImagePicker}
+          onClose={() => setShowImagePicker(false)}
+        />
         {isEdit && (
           <label>
             发布状态

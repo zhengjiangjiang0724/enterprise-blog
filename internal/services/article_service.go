@@ -311,8 +311,8 @@ func (s *ArticleService) searchWithElasticsearch(query models.ArticleQuery) ([]*
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// 使用Elasticsearch搜索
-	ids, total, err := search.SearchArticles(ctx, query.Search, query.Page, query.PageSize)
+	// 使用Elasticsearch搜索（支持模糊搜索和按创建时间排序）
+	ids, total, err := search.SearchArticles(ctx, query)
 	if err != nil {
 		l := logger.GetLogger()
 		l.Error().Err(err).Msg("Elasticsearch search failed")

@@ -48,6 +48,15 @@ DB_NAME=enterprise_blog
 
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# Elasticsearch配置（可选，用于全文搜索）
+ELASTICSEARCH_URL=http://localhost:9200
+ELASTICSEARCH_ENABLED=true
+
+# 图片上传配置
+UPLOAD_DIR=./uploads/images
+MAX_UPLOAD_SIZE=10485760  # 10MB
+UPLOAD_ALLOWED_EXTS=.jpg,.jpeg,.png,.gif,.webp
 ```
 
 ### 5. 运行数据库迁移
@@ -133,6 +142,17 @@ services:
     ports:
       - "6379:6379"
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
   app:
     build: .
     ports:
@@ -140,12 +160,23 @@ services:
     depends_on:
       - postgres
       - redis
+      - elasticsearch
     environment:
       DB_HOST: postgres
       REDIS_HOST: redis
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_ENABLED: "true"
+      UPLOAD_DIR: /app/uploads/images
+      MAX_UPLOAD_SIZE: 10485760
+      UPLOAD_ALLOWED_EXTS: ".jpg,.jpeg,.png,.gif,.webp"
+    volumes:
+      - uploads_data:/app/uploads/images
 
 volumes:
   postgres_data:
+  redis_data:
+  elasticsearch_data:
+  uploads_data:
 ```
 
 启动服务：

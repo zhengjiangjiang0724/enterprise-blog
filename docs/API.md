@@ -193,7 +193,12 @@ GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&se
 说明：
 - 不传 `status` 时，公开文章列表接口默认只返回 `published` 状态的文章。
 - **全文搜索已完全使用Elasticsearch**：如果提供了 `search` 参数，系统会自动使用Elasticsearch进行全文搜索，支持在标题、摘要、内容中搜索。
-- Elasticsearch搜索支持状态、分类、作者等筛选条件，标签筛选在应用层处理。
+- Elasticsearch搜索支持：
+  - **模糊搜索匹配**：支持精确匹配、前缀匹配、模糊匹配（拼写错误）、通配符匹配
+  - **多字段搜索**：标题权重最高，摘要次之，内容权重最低
+  - **筛选条件**：支持状态、分类、作者等筛选
+  - **排序**：默认按创建时间倒序（最新的在前），支持自定义排序字段和方向
+- 标签筛选在应用层处理。
 
 **响应**:
 ```json
@@ -451,8 +456,12 @@ DELETE /api/v1/images/:id
 
 #### 访问图片文件
 ```
-GET /api/v1/uploads/images/:filename
+GET /uploads/images/:filename
 ```
 
-**说明**: 用于直接访问上传的图片文件，返回图片二进制数据。
+**说明**: 
+- 用于直接访问上传的图片文件，返回图片二进制数据
+- 这是静态文件服务，不在 `/api/v1` 路径下
+- 图片URL格式：`/uploads/images/{filename}`
+- 完整访问地址：`http://localhost:8080/uploads/images/{filename}`
 

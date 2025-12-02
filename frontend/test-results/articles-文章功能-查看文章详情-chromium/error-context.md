@@ -1,0 +1,45 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - heading "企业博客系统" [level=1] [ref=e6]
+      - navigation [ref=e7]:
+        - link "文章列表" [ref=e8] [cursor=pointer]:
+          - /url: /
+    - generic [ref=e10]:
+      - link "登录" [ref=e11] [cursor=pointer]:
+        - /url: /login
+      - link "注册" [ref=e12] [cursor=pointer]:
+        - /url: /register
+  - main [ref=e13]:
+    - button "← 返回文章列表" [ref=e15] [cursor=pointer]
+    - article [ref=e16]:
+      - heading "go-kafka" [level=1] [ref=e17]
+      - paragraph [ref=e18]: 阅读：8 · 点赞：0 · 评论：0
+      - generic [ref=e19]:
+        - button "点赞" [ref=e20] [cursor=pointer]
+        - button "收藏" [ref=e21] [cursor=pointer]
+      - img "go-kafka" [ref=e22]
+      - paragraph [ref=e24]: rtrtret
+    - generic [ref=e25]:
+      - heading "评论" [level=2] [ref=e26]
+      - paragraph [ref=e27]: success
+      - paragraph [ref=e28]: 还没有评论，快来抢沙发吧。
+      - generic [ref=e29]:
+        - heading "发表评论" [level=3] [ref=e30]
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - text: 昵称
+            - textbox "昵称" [ref=e33]:
+              - /placeholder: 选填，默认匿名
+          - generic [ref=e34]:
+            - text: 邮箱
+            - textbox "邮箱" [ref=e35]:
+              - /placeholder: 选填，用于通知
+          - generic [ref=e36]:
+            - text: 内容
+            - textbox "内容" [ref=e37]
+          - button "提交评论" [ref=e38] [cursor=pointer]
+```

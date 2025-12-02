@@ -12,9 +12,11 @@
 - **Web框架**: Gin
 - **数据库**: PostgreSQL 12+
 - **缓存**: Redis 6+
+- **搜索引擎**: Elasticsearch 8+（全文搜索）
 - **认证**: JWT (JSON Web Token)
 - **日志**: Zerolog
 - **ORM**: GORM（使用原生 SQL 与轻量封装相结合）
+- **前端**: React 18 + TypeScript + Vite
 
 ## 2. 系统架构
 
@@ -40,7 +42,7 @@
                │
 ┌──────────────▼──────────────────────────┐
 │      Data Storage Layer                 │
-│  (PostgreSQL, Redis)                    │
+│  (PostgreSQL, Redis, Elasticsearch)     │
 └─────────────────────────────────────────┘
 ```
 
@@ -58,7 +60,8 @@ enterprise-blog/
 │   ├── services/         # 业务逻辑层
 │   ├── repository/       # 数据访问层
 │   ├── middleware/       # 中间件
-│   └── database/         # 数据库连接
+│   ├── database/         # 数据库连接
+│   └── search/           # 搜索引擎（Elasticsearch）
 ├── pkg/                  # 公共包（可对外暴露）
 │   ├── jwt/             # JWT工具
 │   ├── logger/          # 日志工具
@@ -257,11 +260,15 @@ Comments
 
 - `users.email`: 登录查询
 - `users.username`: 用户名查询
+- `users.phone`: 手机号登录查询
 - `articles.slug`: 通过slug查询文章
 - `articles.author_id`: 查询用户文章
 - `articles.category_id`: 按分类查询
 - `articles.status`: 状态筛选
 - `comments.article_id`: 查询文章评论
+- `images.uploader_id`: 查询用户上传的图片
+- `images.created_at`: 图片列表排序
+- `images.tags`: 图片标签搜索（GIN索引）
 
 ## 5. API设计
 
@@ -417,9 +424,29 @@ Comments
 
 ### 8.2 缓存优化
 
-- Redis缓存热点数据
+- Redis缓存热点数据（文章详情、文章列表）
 - 缓存预热
 - 缓存失效策略
+- 计数缓冲（浏览量、点赞数使用Redis缓冲，定时批量回刷数据库）
+
+### 8.3 Elasticsearch全文搜索
+
+- **完全迁移到Elasticsearch**：所有全文搜索都使用Elasticsearch
+- **模糊搜索支持**：
+  - 精确匹配（最高优先级）
+  - 前缀匹配
+  - 模糊匹配（支持拼写错误）
+  - 通配符匹配
+- **多字段搜索**：标题、摘要、内容，不同权重
+- **排序**：默认按创建时间倒序，支持自定义排序
+- **筛选**：支持状态、分类、作者等筛选条件
+
+### 8.4 图片服务优化
+
+- 静态文件服务：直接提供图片文件访问
+- 图片元数据管理：数据库存储图片信息
+- 图片搜索：支持按文件名、描述、标签搜索
+- 图片选择器：前端支持从图片库选择封面图片
 
 ### 8.3 代码优化
 

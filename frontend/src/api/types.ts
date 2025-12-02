@@ -139,5 +139,32 @@ export interface CommentPayload {
   article_id: string;
 }
 
+export interface Image {
+  id: string;
+  filename: string;
+  original_name: string;
+  path: string;
+  url: string;
+  mime_type: string;
+  size: number;
+  width: number;
+  height: number;
+  uploader_id: string;
+  uploader?: {
+    id: string;
+    username: string;
+    email: string;
+  };
+  description?: string;
+  tags?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ImageUpdatePayload {
+  description?: string;
+  tags?: string[];
+}
+
 
 

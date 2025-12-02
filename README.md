@@ -8,16 +8,16 @@
   - 邮箱密码登录
   - 手机号验证码登录（自动创建用户）
 - ✅ 文章管理（CRUD）+ 文章状态管理（草稿 / 待审核 / 已发布 / 已归档）
-- ✅ 评论功能（游客 / 登录用户评论，分页展示）
-- ✅ 点赞 / 本地收藏、阅读量统计（Redis 缓存 + 定时回刷）
-- ✅ **Elasticsearch 全文搜索**（完全使用Elasticsearch，支持多字段搜索、筛选、排序）
-- ✅ **图片上传和管理功能**（支持JPEG、PNG、GIF、WebP格式，图片列表、搜索、标签管理）
+- ✅ 评论功能（游客 / 登录用户评论，分页展示，实时更新）
+- ✅ 点赞 / 本地收藏、阅读量统计（Redis 缓存 + 定时回刷，实时显示）
+- ✅ **Elasticsearch 全文搜索**（完全使用Elasticsearch，支持模糊搜索、多字段搜索、筛选、按创建时间排序）
+- ✅ **图片上传和管理功能**（支持JPEG、PNG、GIF、WebP格式，图片列表、搜索、标签管理、从图片库选择封面）
 - ✅ 分类和标签系统（自动生成 ID，文章可按分类/标签筛选）
 - ✅ Redis 缓存（文章详情 & 列表缓存、计数缓冲）
 - ✅ 日志记录与访问日志（Zerolog）
 - ✅ 限流保护（基于中间件的 API 级限流）
 - ✅ 数据库迁移与连接池配置（可通过环境变量调优）
-- ✅ React 前端：文章列表 / 详情、Markdown 编辑与预览、草稿箱 & 审核 / 发布流程、评论区、点赞/收藏
+- ✅ React 前端：文章列表 / 详情、Markdown 编辑与预览、草稿箱 & 审核 / 发布流程、评论区、点赞/收藏、图片上传/管理、返回按钮、实时数据更新
 - ✅ 后台管理系统（仅管理员）：
   - 用户管理：查看用户列表、查看详情、修改角色与状态（启用/禁用）
   - 文章管理：后台文章列表、详情、状态切换（草稿 / 待审核 / 已发布 / 已归档）、删除
@@ -106,6 +106,8 @@ docker-compose up -d postgres redis elasticsearch app frontend
 **配置说明**:
 - Elasticsearch 配置通过环境变量 `ELASTICSEARCH_URL` 和 `ELASTICSEARCH_ENABLED` 控制
 - 图片上传目录通过环境变量 `UPLOAD_DIR` 配置（默认：`./uploads/images`）
+- 图片上传大小限制通过 `MAX_UPLOAD_SIZE` 配置（默认：10MB）
+- 允许的图片格式通过 `UPLOAD_ALLOWED_EXTS` 配置（默认：`.jpg,.jpeg,.png,.gif,.webp`）
 - 所有配置都可以通过环境变量或 `.env` 文件设置
 
 ## 使用Makefile
@@ -152,10 +154,22 @@ go test -v ./tests/integration/...
 运行端到端测试（需要启动前后端服务）：
 
 ```bash
+# 首次运行需要先安装前端依赖和Playwright浏览器
+make install-frontend
+
+# 然后运行E2E测试（确保前后端服务已启动）
 make test-e2e
 # 或
 cd frontend && npm run test:e2e
+
+# 使用UI模式运行测试（可视化，推荐用于调试）
+cd frontend && npm run test:e2e:ui
 ```
+
+**注意**: 
+- 如果遇到 npm 权限错误，请运行：`sudo chown -R $(whoami) ~/.npm`
+- 测试文件位置：`frontend/tests/e2e/`
+- 配置文件位置：`frontend/playwright.config.ts`
 
 ### 测试覆盖率
 
@@ -163,7 +177,15 @@ cd frontend && npm run test:e2e
 
 ```bash
 make test-coverage
+# 或
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
 ```
+
+**注意**: 
+- 当前部分单元测试被跳过（需要接口重构），覆盖率可能显示较低
+- 实际业务逻辑通过集成测试进行验证
+- 查看 HTML 报告：`open coverage.html`
 
 详细的测试文档请参考：[测试文档](./docs/TESTING.md)
 
@@ -205,6 +227,7 @@ curl http://localhost:8080/metrics
 - [测试文档](./docs/TESTING.md) - 测试策略和运行指南
 - [监控文档](./docs/MONITORING.md) - Prometheus监控指标说明
 - [交付清单](./docs/SUMMARY.md) - 完整的交付内容清单
+- [**面试准备文档**](./docs/INTERVIEW_PREPARATION.md) - 面试准备指南和技术要点总结
 
 ## 核心特性
 

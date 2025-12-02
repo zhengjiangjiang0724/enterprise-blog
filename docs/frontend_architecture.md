@@ -5,9 +5,11 @@
 前端项目是企业级博客系统的独立 Web 客户端，主要职责：
 
 - 提供文章浏览、搜索、详情查看等功能
-- 提供文章创建 / 编辑（Markdown 编辑与预览、草稿 / 审核 / 发布流程）
-- 提供评论、点赞、收藏等交互能力
+- 提供文章创建 / 编辑（Markdown 编辑与预览、草稿 / 审核 / 发布流程、封面图片选择）
+- 提供评论、点赞、收藏等交互能力（实时数据更新）
+- 提供图片上传和管理功能
 - 提供用户登录 / 注册 / 个人资料管理以及后台用户管理入口
+- 提供统一的返回按钮导航体验
 - 作为后端 REST API 的消费者
 
 技术栈：
@@ -35,13 +37,17 @@ frontend/
     │   ├── client.ts           # Axios 实例和拦截器
     │   └── types.ts            # 与后端对齐的基础类型（Article、User、Comment 等）
     ├── components/
-    │   ├── ArticleDetail.tsx   # 文章详情（Markdown 渲染、点赞、收藏、评论）
+    │   ├── ArticleDetail.tsx   # 文章详情（Markdown 渲染、点赞、收藏、评论、实时更新）
     │   ├── ArticleList.tsx     # 文章列表 + 搜索 + 分页 + 统计展示
-    │   ├── ArticleEditor.tsx   # 新建/编辑文章（Markdown 编辑 & 预览、草稿 / 审核 / 发布）
-    │   ├── CommentSection.tsx  # 评论列表与发表评论表单
+    │   ├── ArticleEditor.tsx   # 新建/编辑文章（Markdown 编辑 & 预览、草稿 / 审核 / 发布、封面图片选择）
+    │   ├── CommentSection.tsx  # 评论列表与发表评论表单（实时更新评论数）
     │   ├── Login.tsx           # 登录表单
     │   ├── Register.tsx        # 注册表单
     │   ├── Profile.tsx         # 用户资料查看与修改
+    │   ├── ImageUpload.tsx     # 图片上传组件
+    │   ├── ImageList.tsx       # 图片列表和搜索
+    │   ├── ImagePicker.tsx     # 图片选择器（从图片库选择封面）
+    │   ├── BackButton.tsx      # 返回按钮组件（统一导航）
     │   ├── AdminUserList.tsx   # 后台用户列表
     │   ├── AdminUserDetail.tsx # 后台用户详情
     │   ├── AdminArticleList.tsx   # 后台文章列表与筛选
@@ -91,13 +97,15 @@ frontend/
 后端 API：
 
 - `GET /api/v1/articles`
-  - 支持 `page`、`page_size`、`search` 等 Query 参数
+  - 支持 `page`、`page_size`、`search`、`status`、`category_id`、`sort_by`、`order` 等 Query 参数
+  - `search` 参数使用 Elasticsearch 进行全文搜索（支持模糊匹配）
 
 前端实现：
 
 - `components/ArticleList.tsx`
   - 使用 `useSearchParams` 读取 `page`/`page_size`/`search`
   - 请求：`GET /articles?page=...&page_size=...&search=...`
+  - 支持实时搜索（输入关键词后自动搜索）
   - 展示分页、搜索框
   - 搜索框提交后更新 URL 的 `search` 参数，触发重新加载
 
@@ -116,13 +124,16 @@ frontend/
   - 从 `useParams()` 获取 `id`
   - 请求：`GET /articles/:id`
   - 使用 `react-markdown` 渲染文章正文内容
-  - 展示阅读数、点赞数、评论数
-  - 提供“点赞”按钮（调用 `POST /articles/:id/like`）
-  - 提供“收藏 / 已收藏”按钮（本地收藏）
+  - 展示阅读数、点赞数、评论数（实时更新）
+  - 提供“点赞”按钮（调用 `POST /articles/:id/like`，成功后立即更新点赞数）
+  - 提供“收藏 / 已收藏”按钮（本地收藏，使用 `useFavorites` hook）
   - 登录用户可跳转到编辑页、删除文章
+  - 集成 `BackButton` 组件，提供返回文章列表的导航
 - `components/CommentSection.tsx`
   - 请求：`GET /articles/:id/comments` 分页加载评论
   - 请求：`POST /articles/:id/comments` 发表评论（登录用户自动带用户名 / 邮箱）
+  - 评论提交成功后，立即更新评论数并重新加载评论列表（实时更新）
+  - 通过 `onCommentAdded` 回调通知父组件更新文章评论数
 
 ### 3.5 新建 / 编辑文章（Markdown + 草稿箱 / 审核 / 发布流程）
 
@@ -141,6 +152,9 @@ frontend/
     - 草稿：`draft`，仅作者与管理员在后台可见
     - 待审核：`review`，仅管理员在后台审核列表中可见
     - 已发布：`published`，公开文章列表和详情可见
+  - 封面图片支持两种方式：
+    - 直接输入图片URL
+    - 从图片库选择（集成 `ImagePicker` 组件）
   - 分类下拉选项与标签多选数据来源：
     - 分类：`GET /api/v1/categories`
     - 标签：`GET /api/v1/tags`
@@ -148,10 +162,69 @@ frontend/
     - `category_id`：选中的分类 ID（可为空）
     - `tag_ids`：选中的标签 ID 列表（可为空）
   - 登录状态由 `RequireAuth` / `useAuth` 共同校验，未登录用户会被重定向到登录页
+  - 集成 `BackButton` 组件，提供返回导航
 
-### 3.6 导航与菜单
+### 3.6 图片管理
 
-- 顶部导航在登录后会显示“新建文章”“个人资料”“用户管理（管理员）”等菜单
+后端 API：
+
+- `POST /api/v1/images/upload` - 上传图片（需认证）
+- `GET /api/v1/images` - 获取图片列表（支持分页、搜索、标签筛选）
+- `GET /api/v1/images/:id` - 获取图片详情
+- `PUT /api/v1/images/:id` - 更新图片信息（需认证）
+- `DELETE /api/v1/images/:id` - 删除图片（需认证）
+- `GET /uploads/images/:filename` - 访问图片文件（静态文件服务）
+
+前端实现：
+
+- `components/ImageUpload.tsx`
+  - 图片上传表单（支持文件选择、描述、标签）
+  - 文件类型和大小验证
+  - 上传成功后显示图片预览
+- `components/ImageList.tsx`
+  - 图片列表展示（网格布局）
+  - 支持搜索、标签筛选、分页
+  - 图片预览和详情查看
+  - 图片删除功能（需认证）
+- `components/ImagePicker.tsx`
+  - 图片选择器弹窗
+  - 从图片库中选择图片作为文章封面
+  - 支持搜索和分页
+  - 选择后自动填充封面URL
+
+### 3.7 返回按钮导航
+
+前端实现：
+
+- `components/BackButton.tsx`
+  - 通用的返回按钮组件
+  - 支持自定义返回路径和标签文本
+  - 集成到以下页面：
+    - `ArticleDetail` - 返回文章列表
+    - `ArticleEditor` - 返回文章列表或详情
+    - `Profile` - 返回首页
+    - `ImageUpload` / `ImageList` - 返回首页
+    - `AdminUserDetail` / `AdminArticleDetail` - 返回对应的列表页
+
+### 3.8 实时数据更新
+
+前端实现：
+
+- **点赞实时更新**：
+  - `ArticleDetail` 组件中，点赞成功后立即更新本地状态中的 `like_count`
+  - 无需刷新页面即可看到最新的点赞数
+- **收藏实时更新**：
+  - 使用 `useFavorites` hook 管理本地收藏状态
+  - 收藏/取消收藏后立即更新UI
+- **评论实时更新**：
+  - `CommentSection` 组件中，评论提交成功后：
+    - 立即重新加载评论列表
+    - 通过 `onCommentAdded` 回调通知父组件更新 `comment_count`
+  - `ArticleDetail` 组件接收回调后立即更新本地状态中的 `comment_count`
+
+### 3.9 导航与菜单
+
+- 顶部导航在登录后会显示“新建文章”“个人资料”“图片管理”“用户管理（管理员）”等菜单
 - 未登录状态下显示 Login / Register 入口
 - 右上角展示当前登录用户的用户名与角色，并提供“退出登录”按钮
 
@@ -234,11 +307,31 @@ npm run build
 npm run preview
 ```
 
-## 7. 后续优化方向
+## 7. 图片URL处理
+
+前端需要正确处理图片URL：
+
+- 图片URL格式：`/uploads/images/{filename}`
+- 完整访问地址：`http://localhost:8080/uploads/images/{filename}`
+- 前端通过 `getImageUrl` 函数处理相对路径：
+  ```typescript
+  const getImageUrl = (url: string): string => {
+    if (url.startsWith("http")) {
+      return url;
+    }
+    const baseURL = import.meta.env.VITE_API_BASE_URL?.replace("/api/v1", "") || "http://localhost:8080";
+    return `${baseURL}${url}`;
+  };
+  ```
+- 在 `ArticleDetail` 和 `ArticleEditor` 中，封面图片URL会自动处理
+
+## 8. 后续优化方向
 
 - 引入组件库（如 Ant Design / MUI）提升 UI 质量
 - 增加更多页面：分类/标签列表、用户资料页、评论管理等
 - 使用 Suspense 与代码分割优化性能
 - 接入真实的监控与日志（如 Sentry）追踪前端错误
+- 图片缩略图生成和CDN集成
+- WebSocket支持实时通知（点赞、评论等）
 
 

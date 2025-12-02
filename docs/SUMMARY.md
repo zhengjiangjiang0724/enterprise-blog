@@ -14,15 +14,19 @@
 
 2. **核心功能模块**
    - 用户认证与授权系统
-   - 文章管理系统
+   - 文章管理系统（含审核流程）
    - 分类和标签系统
    - 评论系统
+   - 图片上传和管理系统
+   - Elasticsearch全文搜索系统
 
 3. **基础设施**
    - 数据库连接和迁移
    - Redis缓存
+   - Elasticsearch搜索引擎
    - 中间件（认证、日志、限流、CORS）
    - 配置管理
+   - 静态文件服务（图片）
 
 ### ✅ 文档
 
@@ -182,13 +186,16 @@ enterprise-blog/
 │   │   ├── tag.go
 │   │   ├── comment.go
 │   │   ├── sms.go
+│   │   ├── image.go
 │   │   └── response.go
 │   ├── handlers/         # HTTP处理器
 │   │   ├── user_handler.go
 │   │   ├── article_handler.go
 │   │   ├── category_handler.go
 │   │   ├── tag_handler.go
-│   │   └── comment_handler.go
+│   │   ├── comment_handler.go
+│   │   ├── image_handler.go
+│   │   └── admin_handler.go
 │   ├── services/         # 业务逻辑层
 │   │   ├── user_service.go
 │   │   ├── article_service.go
@@ -196,6 +203,7 @@ enterprise-blog/
 │   │   ├── tag_service.go
 │   │   ├── comment_service.go
 │   │   ├── sms_service.go
+│   │   ├── image_service.go
 │   │   └── utils.go (slug生成等)
 │   ├── repository/       # 数据访问层
 │   │   ├── user_repository.go
@@ -203,7 +211,10 @@ enterprise-blog/
 │   │   ├── category_repository.go
 │   │   ├── tag_repository.go
 │   │   ├── comment_repository.go
-│   │   └── sms_repository.go
+│   │   ├── sms_repository.go
+│   │   └── image_repository.go
+│   └── search/           # 搜索引擎
+│       └── elasticsearch.go
 │   ├── middleware/       # 中间件
 │   │   ├── auth.go
 │   │   ├── cors.go
@@ -221,7 +232,9 @@ enterprise-blog/
 │   ├── 001_init_schema.up.sql
 │   ├── 001_init_schema.down.sql
 │   ├── 003_add_phone_sms.up.sql
-│   └── 003_add_phone_sms.down.sql
+│   ├── 003_add_phone_sms.down.sql
+│   ├── 004_add_images.up.sql
+│   └── 004_add_images.down.sql
 │
 ├── tests/               # 测试文件
 │   ├── benchmark_test.go

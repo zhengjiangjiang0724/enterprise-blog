@@ -104,6 +104,9 @@ func main() {
 	// Prometheus metrics endpoint
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
+	// 静态文件服务：上传的图片（需要在API路由组之前，避免路径冲突）
+	router.Static("/uploads/images", config.AppConfig.Upload.Dir)
+
 	// API路由组
 	api := router.Group("/api/v1")
 	{
@@ -133,8 +136,6 @@ func main() {
 			// 图片（公开访问）
 			public.GET("/images", imageHandler.List)
 			public.GET("/images/:id", imageHandler.GetByID)
-			// 图片文件服务
-			public.GET("/uploads/images/:filename", imageHandler.ServeImage)
 		}
 
 		// 需要认证的路由

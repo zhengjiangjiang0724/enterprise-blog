@@ -4,6 +4,7 @@ import { apiClient } from "../api/client";
 import type { ApiResponse, Article } from "../api/types";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./Button";
+import { BackButton } from "./BackButton";
 import { useMessage } from "./MessageProvider";
 
 export function AdminArticleDetail() {
@@ -90,6 +91,9 @@ export function AdminArticleDetail() {
 
   return (
     <div className="admin-section">
+      <div style={{ marginBottom: "16px" }}>
+        <BackButton to="/admin/articles" label="返回文章列表" />
+      </div>
       <h2>文章详情</h2>
       {loading && <p>正在加载文章信息...</p>}
       {error && <p className="error">{error}</p>}

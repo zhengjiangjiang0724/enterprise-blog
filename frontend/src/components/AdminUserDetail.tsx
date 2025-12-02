@@ -4,6 +4,7 @@ import { apiClient } from "../api/client";
 import type { ApiResponse, UserProfile } from "../api/types";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "./Button";
+import { BackButton } from "./BackButton";
 import { useMessage } from "./MessageProvider";
 
 export function AdminUserDetail() {
@@ -74,6 +75,9 @@ export function AdminUserDetail() {
 
   return (
     <div className="admin-section">
+      <div style={{ marginBottom: "16px" }}>
+        <BackButton to="/admin/users" label="返回用户列表" />
+      </div>
       <h2>用户详情</h2>
       {loading && <p>正在加载用户信息...</p>}
       {error && <p className="error">{error}</p>}
