@@ -1,7 +1,29 @@
+/**
+ * @file auth.spec.ts
+ * @description 用户认证相关的 E2E 测试
+ *
+ * @remarks
+ * - 测试用户注册、登录（邮箱密码、手机验证码）、登录失败等场景
+ * - 使用 Playwright 在真实浏览器中测试完整的用户交互流程
+ * - 测试覆盖：表单填写、提交、页面跳转、错误处理
+ *
+ * @test_strategy
+ * - 使用时间戳生成唯一测试数据，避免数据冲突
+ * - 使用精确的 CSS 选择器定位元素（基于 label 和 type 属性）
+ * - 添加适当的等待和超时，处理异步操作
+ * - 对于可能失败的操作（如手机验证码），优雅地跳过测试
+ *
+ * @interview_points
+ * - 如何定位没有 name 属性的表单元素？（使用 label:has-text() 和 type 属性）
+ * - 如何处理异步操作？（使用 waitForURL、waitForSelector 等方法）
+ * - 如何避免测试数据冲突？（使用时间戳生成唯一标识）
+ * - 如何优雅地处理可能失败的操作？（使用 try-catch 和 test.skip()）
+ */
 import { test, expect } from '@playwright/test';
 
 /**
- * 认证相关的E2E测试
+ * @describe 用户认证
+ * @description 测试用户认证相关的所有功能，包括注册、登录、登录失败等场景
  */
 test.describe('用户认证', () => {
   test.beforeEach(async ({ page }) => {
