@@ -159,18 +159,8 @@ func (h *ArticleHandler) List(c *gin.Context) {
 		query.Status = models.StatusPublished
 	}
 
-	// 支持通过 search_mode=es 切换到 Elasticsearch 搜索
-	searchMode := c.Query("search_mode")
-	if searchMode == "es" && query.Search != "" {
-		articles, total, err := h.articleService.SearchWithElasticsearch(query.Search, query.Page, query.PageSize)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, models.Error(500, err.Error()))
-			return
-		}
-		c.JSON(http.StatusOK, models.Paginated(articles, query.Page, query.PageSize, total))
-		return
-	}
-
+	// 全文搜索已完全使用Elasticsearch
+	// 如果提供了search参数，会自动使用Elasticsearch搜索
 	articles, total, err := h.articleService.List(query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(500, err.Error()))

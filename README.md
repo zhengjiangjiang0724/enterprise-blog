@@ -10,7 +10,8 @@
 - ✅ 文章管理（CRUD）+ 文章状态管理（草稿 / 待审核 / 已发布 / 已归档）
 - ✅ 评论功能（游客 / 登录用户评论，分页展示）
 - ✅ 点赞 / 本地收藏、阅读量统计（Redis 缓存 + 定时回刷）
-- ✅ PostgreSQL 原生全文搜索（tsvector + GIN 索引），并预留 Elasticsearch 扩展能力
+- ✅ **Elasticsearch 全文搜索**（完全使用Elasticsearch，支持多字段搜索、筛选、排序）
+- ✅ **图片上传和管理功能**（支持JPEG、PNG、GIF、WebP格式，图片列表、搜索、标签管理）
 - ✅ 分类和标签系统（自动生成 ID，文章可按分类/标签筛选）
 - ✅ Redis 缓存（文章详情 & 列表缓存、计数缓冲）
 - ✅ 日志记录与访问日志（Zerolog）
@@ -28,7 +29,8 @@
 
 - **后端语言**: Go 1.21+
 - **Web 框架**: Gin
-- **数据库**: PostgreSQL（原生 FTS + GIN 索引）
+- **数据库**: PostgreSQL
+- **搜索引擎**: Elasticsearch（全文搜索）
 - **缓存**: Redis（数据缓存 + 计数缓冲）
 - **认证**: JWT
 - **日志**: Zerolog
@@ -107,6 +109,48 @@ make clean     # 清理构建产物
 
 详细的API文档请参考：[API文档](./docs/API.md)
 
+## 测试
+
+### 单元测试
+
+运行单元测试：
+
+```bash
+make test-unit
+# 或
+go test -v ./tests/unit/... -cover
+```
+
+### 集成测试
+
+运行集成测试（需要测试数据库）：
+
+```bash
+make test-integration
+# 或
+go test -v ./tests/integration/...
+```
+
+### E2E测试
+
+运行端到端测试（需要启动前后端服务）：
+
+```bash
+make test-e2e
+# 或
+cd frontend && npm run test:e2e
+```
+
+### 测试覆盖率
+
+生成测试覆盖率报告：
+
+```bash
+make test-coverage
+```
+
+详细的测试文档请参考：[测试文档](./docs/TESTING.md)
+
 ## 性能测试
 
 运行性能测试：
@@ -119,6 +163,20 @@ make benchmark
 
 详细的性能测试报告请参考：[性能测试报告](./tests/performance_report.md)
 
+## 监控
+
+项目集成了Prometheus监控指标，可以通过 `/metrics` 端点访问。
+
+### 访问指标
+
+```bash
+curl http://localhost:8080/metrics
+```
+
+### 配置Prometheus
+
+详细的监控配置请参考：[监控文档](./docs/MONITORING.md)
+
 ## 文档
 
 - [架构设计文档](./docs/architecture.md) - 详细的架构设计说明
@@ -128,6 +186,8 @@ make benchmark
 - [挑战与解决方案](./docs/CHALLENGES.md) - 开发中的挑战和解决方案
 - [项目总览](./docs/PROJECT_OVERVIEW.md) - 项目整体介绍
 - [前端架构文档](./docs/frontend_architecture.md) - 前端项目结构与技术说明
+- [测试文档](./docs/TESTING.md) - 测试策略和运行指南
+- [监控文档](./docs/MONITORING.md) - Prometheus监控指标说明
 - [交付清单](./docs/SUMMARY.md) - 完整的交付内容清单
 
 ## 核心特性

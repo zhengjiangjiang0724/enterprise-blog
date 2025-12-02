@@ -18,8 +18,10 @@ import (
 	"enterprise-blog/internal/services"
 	"enterprise-blog/pkg/jwt"
 	"enterprise-blog/pkg/logger"
+	"enterprise-blog/pkg/metrics"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -61,6 +63,7 @@ func main() {
 	tagRepo := repository.NewTagRepository()
 	commentRepo := repository.NewCommentRepository()
 	smsRepo := repository.NewSMSRepository()
+	imageRepo := repository.NewImageRepository()
 
 	// 初始化Service
 	userService := services.NewUserService(userRepo, jwtMgr)
@@ -69,6 +72,12 @@ func main() {
 	categoryService := services.NewCategoryService(categoryRepo)
 	tagService := services.NewTagService(tagRepo)
 	commentService := services.NewCommentService(commentRepo, articleRepo)
+	// 图片上传目录从环境变量读取，默认为 ./uploads/images
+	uploadDir := os.Getenv("UPLOAD_DIR")
+	if uploadDir == "" {
+		uploadDir = "./uploads/images"
+	}
+	imageService := services.NewImageService(imageRepo, uploadDir)
 
 	// 初始化Handler
 	userHandler := handlers.NewUserHandler(userService, smsService, jwtMgr)
@@ -76,6 +85,7 @@ func main() {
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	tagHandler := handlers.NewTagHandler(tagService)
 	commentHandler := handlers.NewCommentHandler(commentService)
+	imageHandler := handlers.NewImageHandler(imageService)
 	adminHandler := handlers.NewAdminHandler()
 
 	// 设置Gin模式
@@ -86,6 +96,7 @@ func main() {
 
 	// 中间件
 	router.Use(middleware.LoggerMiddleware())
+	router.Use(metrics.MetricsMiddleware()) // Prometheus metrics中间件
 	router.Use(middleware.CORSMiddleware())
 	router.Use(gin.Recovery())
 
@@ -93,6 +104,9 @@ func main() {
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
+
+	// Prometheus metrics endpoint
+	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// API路由组
 	api := router.Group("/api/v1")
@@ -119,6 +133,12 @@ func main() {
 			// 评论（使用文章 ID 路径参数 id，与 /articles/:id 保持一致）
 			public.GET("/articles/:id/comments", commentHandler.GetByArticleID)
 			public.POST("/articles/:id/comments", commentHandler.Create)
+
+			// 图片（公开访问）
+			public.GET("/images", imageHandler.List)
+			public.GET("/images/:id", imageHandler.GetByID)
+			// 图片文件服务
+			public.GET("/uploads/images/:filename", imageHandler.ServeImage)
 		}
 
 		// 需要认证的路由
@@ -135,6 +155,11 @@ func main() {
 			authenticated.POST("/articles", articleHandler.Create)
 			authenticated.PUT("/articles/:id", articleHandler.Update)
 			authenticated.DELETE("/articles/:id", articleHandler.Delete)
+
+			// 图片（需要认证）
+			authenticated.POST("/images/upload", imageHandler.Upload)
+			authenticated.PUT("/images/:id", imageHandler.Update)
+			authenticated.DELETE("/images/:id", imageHandler.Delete)
 		}
 
 		// 管理员路由

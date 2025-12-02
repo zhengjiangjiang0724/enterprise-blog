@@ -217,15 +217,9 @@ func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery)
 		args = append(args, *query.AuthorID)
 	}
 
-	// 处理搜索：使用全文搜索
-	var tsQuery string
-	if query.Search != "" {
-		// 将搜索词转换为 tsquery 格式（支持多词搜索，用 & 连接）
-		searchTerms := strings.Fields(query.Search)
-		tsQuery = strings.Join(searchTerms, " & ")
-		where = append(where, "a.search_vector @@ to_tsquery('english', ?)")
-		args = append(args, tsQuery)
-	}
+	// 注意：全文搜索已完全迁移到Elasticsearch
+	// 如果query.Search不为空，应该在Service层使用Elasticsearch搜索
+	// 这里不再处理Search条件，只处理其他筛选条件
 
 	if query.TagID != nil {
 		where = append(where, "EXISTS (SELECT 1 FROM article_tags WHERE article_id = a.id AND tag_id = ?)")
@@ -243,66 +237,41 @@ func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery)
 
 	// 排序 - 使用白名单验证，防止 SQL 注入
 	var orderBy string
-	if query.Search != "" && tsQuery != "" {
-		// 有搜索时，按相关性排序（相关性高的在前），然后按创建时间
-		// 验证 tsQuery 只包含允许的字符（字母、数字、空格、&、|、!、(、)）
-		// PostgreSQL tsquery 格式只允许这些字符，这样可以防止 SQL 注入
-		validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 &|!()"
-		isValid := true
-		for _, char := range tsQuery {
-			if !strings.ContainsRune(validChars, char) {
-				isValid = false
-				break
-			}
-		}
-		
-		if isValid {
-			// 转义单引号，防止 SQL 注入
-			// 由于 ORDER BY 不能使用参数化查询，我们需要转义用户输入
-			escapedTsQuery := strings.ReplaceAll(tsQuery, "'", "''")
-			// 使用转义后的值构建 ORDER BY 子句
-			orderBy = fmt.Sprintf("ts_rank(a.search_vector, to_tsquery('english', '%s')) DESC, a.created_at DESC", escapedTsQuery)
-		} else {
-			// 如果 tsQuery 包含非法字符，使用默认排序
+	// 白名单：允许的排序字段
+	allowedSortFields := map[string]string{
+		"id":          "a.id",
+		"title":       "a.title",
+		"created_at":  "a.created_at",
+		"updated_at":  "a.updated_at",
+		"published_at": "a.published_at",
+		"view_count":  "a.view_count",
+		"like_count":  "a.like_count",
+		"comment_count": "a.comment_count",
+	}
+
+	// 白名单：允许的排序方向
+	allowedOrders := map[string]bool{
+		"asc":  true,
+		"desc": true,
+	}
+
+	// 验证并构建 ORDER BY 子句
+	if query.SortBy != "" {
+		sortField, ok := allowedSortFields[query.SortBy]
+		if !ok {
+			// 无效的排序字段，使用默认排序
 			orderBy = "a.created_at DESC"
+		} else {
+			// 验证排序方向
+			order := strings.ToLower(query.Order)
+			if !allowedOrders[order] {
+				order = "desc" // 默认降序
+			}
+			orderBy = fmt.Sprintf("%s %s", sortField, strings.ToUpper(order))
 		}
 	} else {
-		// 白名单：允许的排序字段
-		allowedSortFields := map[string]string{
-			"id":          "a.id",
-			"title":       "a.title",
-			"created_at":  "a.created_at",
-			"updated_at":  "a.updated_at",
-			"published_at": "a.published_at",
-			"view_count":  "a.view_count",
-			"like_count":  "a.like_count",
-			"comment_count": "a.comment_count",
-		}
-
-		// 白名单：允许的排序方向
-		allowedOrders := map[string]bool{
-			"asc":  true,
-			"desc": true,
-		}
-
-		// 验证并构建 ORDER BY 子句
-		if query.SortBy != "" {
-			sortField, ok := allowedSortFields[query.SortBy]
-			if !ok {
-				// 无效的排序字段，使用默认排序
-				orderBy = "a.created_at DESC"
-			} else {
-				// 验证排序方向
-				order := strings.ToLower(query.Order)
-				if !allowedOrders[order] {
-					order = "desc" // 默认降序
-				}
-				orderBy = fmt.Sprintf("%s %s", sortField, strings.ToUpper(order))
-			}
-		} else {
-			// 默认按创建时间倒序
-			orderBy = "a.created_at DESC"
-		}
+		// 默认按创建时间倒序
+		orderBy = "a.created_at DESC"
 	}
 
 	// 获取列表 - 使用参数化查询，避免 SQL 注入

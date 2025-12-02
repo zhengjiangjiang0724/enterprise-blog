@@ -61,7 +61,7 @@ func IndexArticle(ctx context.Context, article *models.Article) error {
 		"title":        article.Title,
 		"content":      article.Content,
 		"excerpt":      article.Excerpt,
-		"status":       article.Status,
+		"status":       string(article.Status),
 		"author_id":    article.AuthorID.String(),
 		"category_id":  nil,
 		"published_at": article.PublishedAt,
@@ -114,7 +114,12 @@ func DeleteArticle(ctx context.Context, id uuid.UUID) error {
 }
 
 // SearchArticles 使用 Elasticsearch 搜索文章，返回文章 ID 列表和总数
-func SearchArticles(ctx context.Context, query string, page, pageSize int) ([]uuid.UUID, int64, error) {
+// query: 搜索关键词
+// page: 页码
+// pageSize: 每页数量
+// filters: 可选的筛选条件（状态、分类ID、作者ID等）
+// 返回: 文章ID列表、总数，如果搜索失败则返回错误
+func SearchArticles(ctx context.Context, query string, page, pageSize int, filters ...map[string]interface{}) ([]uuid.UUID, int64, error) {
 	if esClient == nil {
 		return nil, 0, fmt.Errorf("elasticsearch not initialized")
 	}
@@ -130,15 +135,50 @@ func SearchArticles(ctx context.Context, query string, page, pageSize int) ([]uu
 
 	from := (page - 1) * pageSize
 
+	// 构建查询
+	esQuery := map[string]interface{}{
+		"multi_match": map[string]interface{}{
+			"query":  query,
+			"fields": []string{"title^3", "excerpt^2", "content"},
+		},
+	}
+
+	// 如果有筛选条件，使用bool查询
+	if len(filters) > 0 && len(filters[0]) > 0 {
+		mustClauses := []map[string]interface{}{esQuery}
+		filterClauses := []map[string]interface{}{}
+
+		filter := filters[0]
+		if status, ok := filter["status"].(string); ok && status != "" {
+			filterClauses = append(filterClauses, map[string]interface{}{
+				"term": map[string]interface{}{"status": status},
+			})
+		}
+		if categoryID, ok := filter["category_id"].(string); ok && categoryID != "" {
+			filterClauses = append(filterClauses, map[string]interface{}{
+				"term": map[string]interface{}{"category_id": categoryID},
+			})
+		}
+		if authorID, ok := filter["author_id"].(string); ok && authorID != "" {
+			filterClauses = append(filterClauses, map[string]interface{}{
+				"term": map[string]interface{}{"author_id": authorID},
+			})
+		}
+
+		if len(filterClauses) > 0 {
+			esQuery = map[string]interface{}{
+				"bool": map[string]interface{}{
+					"must":   mustClauses,
+					"filter": filterClauses,
+				},
+			}
+		}
+	}
+
 	body := map[string]interface{}{
 		"from": from,
 		"size": pageSize,
-		"query": map[string]interface{}{
-			"multi_match": map[string]interface{}{
-				"query":  query,
-				"fields": []string{"title^3", "excerpt^2", "content"},
-			},
-		},
+		"query": esQuery,
 	}
 
 	reqBody, err := json.Marshal(body)

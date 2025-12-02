@@ -177,7 +177,7 @@ PUT /users/password
 
 #### 获取文章列表
 ```
-GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&search=keyword&search_mode=es
+GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&search=keyword
 ```
 
 **查询参数**:
@@ -186,13 +186,14 @@ GET /articles?page=1&page_size=10&status=published&category_id=xxx&tag_id=xxx&se
 - `status`: 文章状态（draft/review/published/archived），公开列表通常只使用 `published`
 - `category_id`: 分类ID
 - `tag_id`: 标签ID
-- `search`: 搜索关键词
+- `search`: 搜索关键词（**使用Elasticsearch全文搜索**）
 - `sort_by`: 排序字段（created_at/view_count等）
 - `order`: 排序方向（asc/desc）
-- `search_mode`: 可选，`es` 时使用 Elasticsearch 搜索；省略或其他值时使用 PostgreSQL 全文搜索
 
 说明：
 - 不传 `status` 时，公开文章列表接口默认只返回 `published` 状态的文章。
+- **全文搜索已完全使用Elasticsearch**：如果提供了 `search` 参数，系统会自动使用Elasticsearch进行全文搜索，支持在标题、摘要、内容中搜索。
+- Elasticsearch搜索支持状态、分类、作者等筛选条件，标签筛选在应用层处理。
 
 **响应**:
 ```json
@@ -333,4 +334,125 @@ POST /articles/:article_id/comments
 - `404`: 资源不存在
 - `429`: 请求过于频繁
 - `500`: 服务器内部错误
+
+### 图片管理相关
+
+#### 上传图片
+```
+POST /api/v1/images/upload
+```
+
+**需要认证**: 是
+
+**Content-Type**: `multipart/form-data`
+
+**表单字段**:
+- `file`: 图片文件（必需，支持JPEG、PNG、GIF、WebP格式，最大10MB）
+- `description`: 图片描述（可选）
+- `tags`: 图片标签，逗号分隔（可选，如：`tag1,tag2,tag3`）
+
+**响应**:
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "id": "uuid",
+    "filename": "generated-filename.jpg",
+    "original_name": "original-filename.jpg",
+    "path": "/path/to/file",
+    "url": "/uploads/images/generated-filename.jpg",
+    "mime_type": "image/jpeg",
+    "size": 1024000,
+    "width": 1920,
+    "height": 1080,
+    "uploader_id": "uuid",
+    "uploader": {
+      "id": "uuid",
+      "username": "username",
+      "email": "email@example.com"
+    },
+    "description": "图片描述",
+    "tags": ["tag1", "tag2"],
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+#### 获取图片列表
+```
+GET /api/v1/images?page=1&page_size=20&uploader_id=xxx&search=keyword&tag=tag1
+```
+
+**查询参数**:
+- `page`: 页码（默认1）
+- `page_size`: 每页数量（默认20，最大100）
+- `uploader_id`: 上传者ID（可选）
+- `search`: 搜索关键词（搜索文件名和描述）
+- `tag`: 标签筛选（可选）
+- `sort_by`: 排序字段（id/filename/created_at/updated_at/size）
+- `order`: 排序方向（asc/desc）
+
+**响应**:
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [...],
+  "meta": {
+    "page": 1,
+    "page_size": 20,
+    "total": 100,
+    "total_page": 5
+  }
+}
+```
+
+#### 获取图片详情
+```
+GET /api/v1/images/:id
+```
+
+**响应**: 同上传图片的响应格式
+
+#### 更新图片信息
+```
+PUT /api/v1/images/:id
+```
+
+**需要认证**: 是（只能更新自己上传的图片，管理员可以更新所有图片）
+
+**请求体**:
+```json
+{
+  "description": "新的图片描述",
+  "tags": ["tag1", "tag2", "tag3"]
+}
+```
+
+**响应**: 更新后的图片对象
+
+#### 删除图片
+```
+DELETE /api/v1/images/:id
+```
+
+**需要认证**: 是（只能删除自己上传的图片，管理员可以删除所有图片）
+
+**响应**:
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": null
+}
+```
+
+#### 访问图片文件
+```
+GET /api/v1/uploads/images/:filename
+```
+
+**说明**: 用于直接访问上传的图片文件，返回图片二进制数据。
 

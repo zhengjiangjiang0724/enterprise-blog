@@ -266,7 +266,10 @@ func (s *ArticleService) Delete(id uuid.UUID) error {
 // List 获取文章列表（分页、筛选、搜索、排序）
 // query: 文章查询条件，包含页码、每页数量、状态、分类、标签、作者、搜索关键词、排序等
 // 返回: 文章列表、总数，如果查询失败则返回错误
-// 注意: 优先从Redis缓存读取，缓存未命中时从数据库读取并写入缓存
+// 注意: 
+//   - 如果有搜索关键词，使用Elasticsearch进行全文搜索
+//   - 如果没有搜索关键词，从数据库查询
+//   - 优先从Redis缓存读取，缓存未命中时从数据库/Elasticsearch读取并写入缓存
 func (s *ArticleService) List(query models.ArticleQuery) ([]*models.Article, int64, error) {
 	if query.Page <= 0 {
 		query.Page = 1
@@ -276,6 +279,11 @@ func (s *ArticleService) List(query models.ArticleQuery) ([]*models.Article, int
 	}
 	if query.PageSize > 100 {
 		query.PageSize = 100
+	}
+
+	// 如果有搜索关键词，使用Elasticsearch进行全文搜索
+	if query.Search != "" {
+		return s.searchWithElasticsearch(query)
 	}
 
 	// 尝试从缓存读取列表
@@ -295,6 +303,65 @@ func (s *ArticleService) List(query models.ArticleQuery) ([]*models.Article, int
 	return articles, total, nil
 }
 
+// searchWithElasticsearch 使用Elasticsearch进行全文搜索
+// query: 文章查询条件，必须包含Search字段
+// 返回: 文章列表、总数，如果搜索失败则返回错误
+// 注意: 如果Elasticsearch不可用，返回错误（不再fallback到PostgreSQL）
+func (s *ArticleService) searchWithElasticsearch(query models.ArticleQuery) ([]*models.Article, int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 使用Elasticsearch搜索
+	ids, total, err := search.SearchArticles(ctx, query.Search, query.Page, query.PageSize)
+	if err != nil {
+		l := logger.GetLogger()
+		l.Error().Err(err).Msg("Elasticsearch search failed")
+		return nil, 0, fmt.Errorf("search service unavailable: %w", err)
+	}
+
+	if len(ids) == 0 {
+		return []*models.Article{}, 0, nil
+	}
+
+	// 从数据库批量获取文章详情（保持原有逻辑，但可以优化为批量查询）
+	articles := make([]*models.Article, 0, len(ids))
+	for _, id := range ids {
+		art, err := s.articleRepo.GetByIDWithContext(ctx, id)
+		if err != nil {
+			// 如果文章不存在或已删除，跳过
+			continue
+		}
+		// 应用其他筛选条件（状态、分类、标签、作者）
+		if query.Status != "" && art.Status != query.Status {
+			continue
+		}
+		if query.CategoryID != nil && (art.CategoryID == nil || *art.CategoryID != *query.CategoryID) {
+			continue
+		}
+		if query.AuthorID != nil && art.AuthorID != *query.AuthorID {
+			continue
+		}
+		if query.TagID != nil {
+			hasTag := false
+			for _, tag := range art.Tags {
+				if tag.ID == *query.TagID {
+					hasTag = true
+					break
+				}
+			}
+			if !hasTag {
+				continue
+			}
+		}
+		articles = append(articles, art)
+	}
+
+	// 更新总数（根据筛选后的结果）
+	total = int64(len(articles))
+
+	return articles, total, nil
+}
+
 func (s *ArticleService) Like(id uuid.UUID) error {
 	// 点赞计数：优先写入 Redis 作为缓冲，失败时退回到数据库自增
 	if err := incrementArticleLikeCountBuffered(id); err != nil {
@@ -304,44 +371,16 @@ func (s *ArticleService) Like(id uuid.UUID) error {
 	return nil
 }
 
-// SearchWithElasticsearch 使用 Elasticsearch 搜索文章，并回到数据库取完整数据
-// SearchWithElasticsearch 使用Elasticsearch进行全文搜索
-// query: 搜索关键词
-// page: 页码，从1开始
-// pageSize: 每页数量
-// 返回: 文章列表、总数，如果搜索失败则返回错误
-// 注意: 如果Elasticsearch不可用，会回退到PostgreSQL全文搜索
+// SearchWithElasticsearch 使用Elasticsearch进行全文搜索（已废弃，使用List方法替代）
+// 保留此方法以保持向后兼容，但内部调用List方法
+// Deprecated: 使用List方法，传入包含Search字段的ArticleQuery
 func (s *ArticleService) SearchWithElasticsearch(query string, page, pageSize int) ([]*models.Article, int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	ids, total, err := search.SearchArticles(ctx, query, page, pageSize)
-	if err != nil {
-		// 如果 ES 搜索失败，则回退到 PostgreSQL 全文搜索，保证接口可用
-		l := logger.GetLogger()
-		l.Warn().Err(err).Msg("Elasticsearch search failed, fallback to PostgreSQL fulltext search")
-
-		fallbackQuery := models.ArticleQuery{
-			Page:     page,
-			PageSize: pageSize,
-			Search:   query,
-		}
-		return s.List(fallbackQuery)
+	searchQuery := models.ArticleQuery{
+		Page:     page,
+		PageSize: pageSize,
+		Search:   query,
 	}
-	if len(ids) == 0 {
-		return []*models.Article{}, 0, nil
-	}
-
-	// 简单实现：逐个从数据库读取，后续可优化为批量查询
-	articles := make([]*models.Article, 0, len(ids))
-	for _, id := range ids {
-		art, err := s.articleRepo.GetByIDWithContext(ctx, id)
-		if err != nil {
-			continue
-		}
-		articles = append(articles, art)
-	}
-	return articles, total, nil
+	return s.List(searchQuery)
 }
 
 // isSlugUniqueViolation 判断是否为 articles.slug 唯一约束冲突
