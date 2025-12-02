@@ -44,6 +44,7 @@
 - Go 1.21+
 - PostgreSQL 12+
 - Redis 6+
+- Elasticsearch 8+ (可选，用于全文搜索)
 
 ### 安装依赖
 
@@ -83,14 +84,29 @@ go run cmd/server/main.go
 
 ### 使用 Docker Compose 启动前后端
 
-项目提供了 docker-compose 方案，一次性启动 PostgreSQL、Redis、后端 API 和前端：
+项目提供了 docker-compose 方案，一次性启动 PostgreSQL、Redis、Elasticsearch、后端 API 和前端：
 
 ```bash
-docker-compose up -d postgres redis app frontend
+docker-compose up -d
 ```
 
+或者只启动部分服务：
+
+```bash
+docker-compose up -d postgres redis elasticsearch app frontend
+```
+
+**服务说明**:
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+- Elasticsearch: `localhost:9200`
 - 后端 API: `http://localhost:8080/api/v1`
 - 前端 Web: `http://localhost:3000`
+
+**配置说明**:
+- Elasticsearch 配置通过环境变量 `ELASTICSEARCH_URL` 和 `ELASTICSEARCH_ENABLED` 控制
+- 图片上传目录通过环境变量 `UPLOAD_DIR` 配置（默认：`./uploads/images`）
+- 所有配置都可以通过环境变量或 `.env` 文件设置
 
 ## 使用Makefile
 

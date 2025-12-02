@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
+	"enterprise-blog/internal/config"
 	"enterprise-blog/internal/models"
 	"enterprise-blog/pkg/logger"
 
@@ -20,10 +20,18 @@ var esClient *elasticsearch.Client
 const articleIndex = "articles"
 
 // InitElasticsearch 初始化 Elasticsearch 客户端（可选，失败时仅记录日志）
+// 从配置文件读取 Elasticsearch 配置
 func InitElasticsearch() {
-	url := os.Getenv("ELASTICSEARCH_URL")
+	if !config.AppConfig.Elasticsearch.Enabled {
+		// Elasticsearch 未启用
+		return
+	}
+
+	url := config.AppConfig.Elasticsearch.URL
 	if url == "" {
-		// 未配置则不启用
+		// 未配置URL则不启用
+		l := logger.GetLogger()
+		l.Warn().Msg("Elasticsearch enabled but URL not configured, search disabled")
 		return
 	}
 

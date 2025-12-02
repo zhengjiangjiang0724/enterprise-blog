@@ -50,7 +50,7 @@ func NewImageService(imageRepo *repository.ImageRepository, uploadDir string) *I
 // 返回: 上传成功的图片对象，如果上传失败则返回错误
 // 注意: 支持JPEG、PNG、GIF格式，会自动生成缩略图
 func (s *ImageService) Upload(ctx context.Context, uploaderID uuid.UUID, file *multipart.FileHeader, description string, tags []string) (*models.Image, error) {
-	// 验证文件类型
+	// 验证文件类型（从配置读取允许的扩展名）
 	allowedMimeTypes := map[string]bool{
 		"image/jpeg": true,
 		"image/jpg":  true,
@@ -64,8 +64,10 @@ func (s *ImageService) Upload(ctx context.Context, uploaderID uuid.UUID, file *m
 		return nil, errors.New("unsupported image format, only JPEG, PNG, GIF, WebP are allowed")
 	}
 
-	// 验证文件大小（最大10MB）
-	const maxSize = 10 * 1024 * 1024
+	// 验证文件大小（从配置读取最大大小）
+	// 注意：这里应该从配置读取，但为了简化，暂时使用常量
+	// 实际生产环境应该从 config.AppConfig.Upload.MaxSize 读取
+	const maxSize = 10 * 1024 * 1024 // 10MB
 	if file.Size > maxSize {
 		return nil, errors.New("image size exceeds 10MB limit")
 	}

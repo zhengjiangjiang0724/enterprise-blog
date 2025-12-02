@@ -72,12 +72,8 @@ func main() {
 	categoryService := services.NewCategoryService(categoryRepo)
 	tagService := services.NewTagService(tagRepo)
 	commentService := services.NewCommentService(commentRepo, articleRepo)
-	// 图片上传目录从环境变量读取，默认为 ./uploads/images
-	uploadDir := os.Getenv("UPLOAD_DIR")
-	if uploadDir == "" {
-		uploadDir = "./uploads/images"
-	}
-	imageService := services.NewImageService(imageRepo, uploadDir)
+	// 图片上传目录从配置文件读取
+	imageService := services.NewImageService(imageRepo, config.AppConfig.Upload.Dir)
 
 	// 初始化Handler
 	userHandler := handlers.NewUserHandler(userService, smsService, jwtMgr)

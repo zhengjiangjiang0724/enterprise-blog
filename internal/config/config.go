@@ -10,12 +10,13 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	Log      LogConfig
-	Upload   UploadConfig
+	Server        ServerConfig
+	Database      DatabaseConfig
+	Redis         RedisConfig
+	Elasticsearch ElasticsearchConfig
+	JWT           JWTConfig
+	Log           LogConfig
+	Upload        UploadConfig
 }
 
 type ServerConfig struct {
@@ -42,6 +43,11 @@ type RedisConfig struct {
 	Port     string
 	Password string
 	DB       int
+}
+
+type ElasticsearchConfig struct {
+	URL     string
+	Enabled bool
 }
 
 type JWTConfig struct {
@@ -90,6 +96,10 @@ func Load() error {
 			Password: getEnv("REDIS_PASSWORD", ""),
 			DB:       getEnvAsInt("REDIS_DB", 0),
 		},
+		Elasticsearch: ElasticsearchConfig{
+			URL:     getEnv("ELASTICSEARCH_URL", ""),
+			Enabled: getEnv("ELASTICSEARCH_ENABLED", "true") == "true",
+		},
 		JWT: JWTConfig{
 			Secret:      getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
 			ExpireHours: getEnvAsInt("JWT_EXPIRE_HOURS", 24),
@@ -99,9 +109,9 @@ func Load() error {
 			File:  getEnv("LOG_FILE", "logs/app.log"),
 		},
 		Upload: UploadConfig{
-			Dir:         getEnv("UPLOAD_DIR", "uploads"),
-			MaxSize:     int64(getEnvAsInt("MAX_UPLOAD_SIZE", 10485760)),
-			AllowedExts: []string{".jpg", ".jpeg", ".png", ".gif", ".pdf", ".doc", ".docx"},
+			Dir:         getEnv("UPLOAD_DIR", "./uploads/images"),
+			MaxSize:     int64(getEnvAsInt("MAX_UPLOAD_SIZE", 10485760)), // 默认10MB
+			AllowedExts: []string{".jpg", ".jpeg", ".png", ".gif", ".webp"},
 		},
 	}
 
@@ -135,4 +145,3 @@ func getEnvAsInt(key string, defaultValue int) int {
 func (j JWTConfig) ExpireDuration() time.Duration {
 	return time.Duration(j.ExpireHours) * time.Hour
 }
-
