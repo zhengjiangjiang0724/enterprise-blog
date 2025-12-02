@@ -60,16 +60,18 @@ func main() {
 	categoryRepo := repository.NewCategoryRepository()
 	tagRepo := repository.NewTagRepository()
 	commentRepo := repository.NewCommentRepository()
+	smsRepo := repository.NewSMSRepository()
 
 	// 初始化Service
 	userService := services.NewUserService(userRepo, jwtMgr)
+	smsService := services.NewSMSService(smsRepo, userRepo)
 	articleService := services.NewArticleService(articleRepo, categoryRepo, tagRepo)
 	categoryService := services.NewCategoryService(categoryRepo)
 	tagService := services.NewTagService(tagRepo)
 	commentService := services.NewCommentService(commentRepo, articleRepo)
 
 	// 初始化Handler
-	userHandler := handlers.NewUserHandler(userService, jwtMgr)
+	userHandler := handlers.NewUserHandler(userService, smsService, jwtMgr)
 	articleHandler := handlers.NewArticleHandler(articleService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	tagHandler := handlers.NewTagHandler(tagService)
@@ -101,6 +103,8 @@ func main() {
 			// 用户认证
 			public.POST("/auth/register", userHandler.Register)
 			public.POST("/auth/login", userHandler.Login)
+			public.POST("/auth/send-sms-code", userHandler.SendSMSCode)
+			public.POST("/auth/login-phone", userHandler.LoginWithPhone)
 
 			// 文章（公开访问）
 			public.GET("/articles", articleHandler.List)
@@ -125,6 +129,7 @@ func main() {
 			// 用户
 			authenticated.GET("/users/profile", userHandler.GetProfile)
 			authenticated.PUT("/users/profile", userHandler.UpdateProfile)
+			authenticated.PUT("/users/password", userHandler.ChangePassword)
 
 			// 文章（需要认证）
 			authenticated.POST("/articles", articleHandler.Create)

@@ -45,15 +45,17 @@ func init() {
 	articleRepo := repository.NewArticleRepository()
 	categoryRepo := repository.NewCategoryRepository()
 	tagRepo := repository.NewTagRepository()
+	smsRepo := repository.NewSMSRepository()
 	// 如需在基准测试中覆盖评论接口，再初始化 commentRepo / commentService / commentHandler
 
 	userService := services.NewUserService(userRepo, jwtMgr)
+	smsService := services.NewSMSService(smsRepo, userRepo)
 	articleService := services.NewArticleService(articleRepo, categoryRepo, tagRepo)
 	categoryService := services.NewCategoryService(categoryRepo)
 	tagService := services.NewTagService(tagRepo)
 	// commentService := services.NewCommentService(commentRepo, articleRepo)
 
-	userHandler := handlers.NewUserHandler(userService, jwtMgr)
+	userHandler := handlers.NewUserHandler(userService, smsService, jwtMgr)
 	articleHandler := handlers.NewArticleHandler(articleService)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 	tagHandler := handlers.NewTagHandler(tagService)

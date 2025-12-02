@@ -14,13 +14,15 @@ import (
 
 type UserHandler struct {
 	userService *services.UserService
+	smsService *services.SMSService
 	jwtMgr      *jwt.JWTManager
 	validator   *validator.Validate
 }
 
-func NewUserHandler(userService *services.UserService, jwtMgr *jwt.JWTManager) *UserHandler {
+func NewUserHandler(userService *services.UserService, smsService *services.SMSService, jwtMgr *jwt.JWTManager) *UserHandler {
 	return &UserHandler{
 		userService: userService,
+		smsService:  smsService,
 		jwtMgr:      jwtMgr,
 		validator:   validator.New(),
 	}
@@ -109,6 +111,36 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, models.Success(user))
 }
 
+// ChangePassword 修改当前登录用户密码
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.Error(401, "unauthorized"))
+		return
+	}
+
+	var req struct {
+		OldPassword string `json:"old_password" validate:"required"`
+		NewPassword string `json:"new_password" validate:"required,min=6"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	if err := h.userService.ChangePassword(userID.(uuid.UUID), req.OldPassword, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Success(nil))
+}
+
 func (h *UserHandler) GetUser(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -166,5 +198,69 @@ func (h *UserHandler) AdminUpdateUser(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, models.Success(user))
+}
+
+// SendSMSCode 发送短信验证码
+func (h *UserHandler) SendSMSCode(c *gin.Context) {
+	var req models.SendSMSCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	if err := h.smsService.SendCode(req.Phone); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, models.Success(map[string]interface{}{
+		"message": "验证码已发送",
+	}))
+}
+
+// LoginWithPhone 手机号验证码登录
+func (h *UserHandler) LoginWithPhone(c *gin.Context) {
+	var req models.PhoneLogin
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	if err := h.validator.Struct(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(400, err.Error()))
+		return
+	}
+
+	user, err := h.smsService.VerifyCode(req.Phone, req.Code)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, models.Error(401, err.Error()))
+		return
+	}
+
+	// 检查用户状态
+	if user.Status != "active" {
+		c.JSON(http.StatusUnauthorized, models.Error(401, "user account is not active"))
+		return
+	}
+
+	// 生成 JWT token
+	token, err := h.jwtMgr.GenerateToken(user.ID, user.Username, string(user.Role))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.Error(500, "failed to generate token"))
+		return
+	}
+
+	// 清除密码
+	user.Password = ""
+
+	c.JSON(http.StatusOK, models.Success(map[string]interface{}{
+		"token": token,
+		"user":  user,
+	}))
 }
 

@@ -22,6 +22,7 @@ type User struct {
 	ID        uuid.UUID  `json:"id" db:"id"`
 	Username  string     `json:"username" db:"username"`
 	Email     string     `json:"email" db:"email"`
+	Phone     string     `json:"phone,omitempty" db:"phone"`
 	Password  string     `json:"-" db:"password"`
 	Role      UserRole   `json:"role" db:"role"`
 	Avatar    string     `json:"avatar" db:"avatar"`
@@ -51,6 +52,15 @@ type UserUpdate struct {
 type UserLogin struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
+}
+
+type PhoneLogin struct {
+	Phone string `json:"phone" validate:"required"`
+	Code  string `json:"code" validate:"required,len=6"`
+}
+
+type SendSMSCodeRequest struct {
+	Phone string `json:"phone" validate:"required"`
 }
 
 func (u *User) HashPassword() error {

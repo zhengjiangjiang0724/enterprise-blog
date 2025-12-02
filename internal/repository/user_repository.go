@@ -18,8 +18,8 @@ func NewUserRepository() *UserRepository {
 
 func (r *UserRepository) Create(user *models.User) error {
 	query := `
-		INSERT INTO users (id, username, email, password, role, avatar, bio, status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO users (id, username, email, phone, password, role, avatar, bio, status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
 	
@@ -37,7 +37,7 @@ func (r *UserRepository) Create(user *models.User) error {
 
 	row := database.DB.Raw(
 		query,
-		user.ID, user.Username, user.Email, user.Password, user.Role,
+		user.ID, user.Username, user.Email, user.Phone, user.Password, user.Role,
 		user.Avatar, user.Bio, user.Status, user.CreatedAt, user.UpdatedAt,
 	).Row()
 	return row.Scan(&user.ID)
@@ -45,7 +45,7 @@ func (r *UserRepository) Create(user *models.User) error {
 
 func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	user := &models.User{}
-	query := `SELECT id, username, email, password, role, avatar, bio, status, created_at, updated_at, deleted_at
+	query := `SELECT id, username, email, phone, password, role, avatar, bio, status, created_at, updated_at, deleted_at
 			  FROM users WHERE id = $1 AND deleted_at IS NULL`
 	
 	result := database.DB.Raw(query, id).Scan(user)
@@ -58,9 +58,24 @@ func (r *UserRepository) GetByID(id uuid.UUID) (*models.User, error) {
 	return user, nil
 }
 
+func (r *UserRepository) GetByPhone(phone string) (*models.User, error) {
+	user := &models.User{}
+	query := `SELECT id, username, email, phone, password, role, avatar, bio, status, created_at, updated_at, deleted_at
+			  FROM users WHERE phone = $1 AND deleted_at IS NULL`
+	
+	result := database.DB.Raw(query, phone).Scan(user)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, errors.New("user not found")
+	}
+	return user, nil
+}
+
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	user := &models.User{}
-	query := `SELECT id, username, email, password, role, avatar, bio, status, created_at, updated_at, deleted_at
+	query := `SELECT id, username, email, phone, password, role, avatar, bio, status, created_at, updated_at, deleted_at
 			  FROM users WHERE email = $1 AND deleted_at IS NULL`
 	
 	result := database.DB.Raw(query, email).Scan(user)
@@ -75,7 +90,7 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 
 func (r *UserRepository) GetByUsername(username string) (*models.User, error) {
 	user := &models.User{}
-	query := `SELECT id, username, email, password, role, avatar, bio, status, created_at, updated_at, deleted_at
+	query := `SELECT id, username, email, phone, password, role, avatar, bio, status, created_at, updated_at, deleted_at
 			  FROM users WHERE username = $1 AND deleted_at IS NULL`
 	
 	result := database.DB.Raw(query, username).Scan(user)
@@ -91,17 +106,35 @@ func (r *UserRepository) GetByUsername(username string) (*models.User, error) {
 func (r *UserRepository) Update(user *models.User) error {
 	query := `
 		UPDATE users 
-		SET username = $2, email = $3, role = $4, avatar = $5, bio = $6, status = $7, updated_at = $8
+		SET username = $2, email = $3, phone = $4, role = $5, avatar = $6, bio = $7, status = $8, updated_at = $9
 		WHERE id = $1 AND deleted_at IS NULL
 	`
 	
 	user.UpdatedAt = time.Now()
-	result := database.DB.Exec(query, user.ID, user.Username, user.Email, user.Role,
+	result := database.DB.Exec(query, user.ID, user.Username, user.Email, user.Phone, user.Role,
 		user.Avatar, user.Bio, user.Status, user.UpdatedAt)
 	if result.Error != nil {
 		return result.Error
 	}
 
+	if result.RowsAffected == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}
+
+// UpdatePassword 仅更新用户密码（已在 service 层完成哈希）
+func (r *UserRepository) UpdatePassword(id uuid.UUID, hashedPassword string) error {
+	query := `
+		UPDATE users
+		SET password = $2, updated_at = $3
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+	now := time.Now()
+	result := database.DB.Exec(query, id, hashedPassword, now)
+	if result.Error != nil {
+		return result.Error
+	}
 	if result.RowsAffected == 0 {
 		return errors.New("user not found")
 	}

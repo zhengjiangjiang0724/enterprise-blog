@@ -234,34 +234,78 @@ func (r *ArticleRepository) List(ctx context.Context, query models.ArticleQuery)
 
 	whereClause := strings.Join(where, " AND ")
 
-	// 获取总数
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM articles a WHERE %s", whereClause)
+	// 获取总数 - 使用参数化查询，避免 SQL 注入
+	countQuery := "SELECT COUNT(*) FROM articles a WHERE " + whereClause
 	err := database.DB.WithContext(ctx).Raw(countQuery, args...).Scan(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// 排序
+	// 排序 - 使用白名单验证，防止 SQL 注入
 	var orderBy string
 	if query.Search != "" && tsQuery != "" {
 		// 有搜索时，按相关性排序（相关性高的在前），然后按创建时间
-		// 注意：PostgreSQL 的 ORDER BY 中不能直接使用参数，但我们可以使用相同的 tsquery 表达式
-		// 由于 tsQuery 已经通过参数传入 WHERE 子句，这里使用相同的值（已转义）是安全的
-		escapedTsQuery := strings.ReplaceAll(tsQuery, "'", "''")
-		orderBy = fmt.Sprintf("ts_rank(a.search_vector, to_tsquery('english', '%s')) DESC, a.created_at DESC", escapedTsQuery)
-	} else if query.SortBy != "" {
-		// 无搜索时，按指定字段排序
-		if query.Order == "asc" {
-			orderBy = fmt.Sprintf("a.%s ASC", query.SortBy)
+		// 验证 tsQuery 只包含允许的字符（字母、数字、空格、&、|、!、(、)）
+		// PostgreSQL tsquery 格式只允许这些字符，这样可以防止 SQL 注入
+		validChars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 &|!()"
+		isValid := true
+		for _, char := range tsQuery {
+			if !strings.ContainsRune(validChars, char) {
+				isValid = false
+				break
+			}
+		}
+		
+		if isValid {
+			// 转义单引号，防止 SQL 注入
+			// 由于 ORDER BY 不能使用参数化查询，我们需要转义用户输入
+			escapedTsQuery := strings.ReplaceAll(tsQuery, "'", "''")
+			// 使用转义后的值构建 ORDER BY 子句
+			orderBy = fmt.Sprintf("ts_rank(a.search_vector, to_tsquery('english', '%s')) DESC, a.created_at DESC", escapedTsQuery)
 		} else {
-			orderBy = fmt.Sprintf("a.%s DESC", query.SortBy)
+			// 如果 tsQuery 包含非法字符，使用默认排序
+			orderBy = "a.created_at DESC"
 		}
 	} else {
-		// 默认按创建时间倒序
-		orderBy = "a.created_at DESC"
+		// 白名单：允许的排序字段
+		allowedSortFields := map[string]string{
+			"id":          "a.id",
+			"title":       "a.title",
+			"created_at":  "a.created_at",
+			"updated_at":  "a.updated_at",
+			"published_at": "a.published_at",
+			"view_count":  "a.view_count",
+			"like_count":  "a.like_count",
+			"comment_count": "a.comment_count",
+		}
+
+		// 白名单：允许的排序方向
+		allowedOrders := map[string]bool{
+			"asc":  true,
+			"desc": true,
+		}
+
+		// 验证并构建 ORDER BY 子句
+		if query.SortBy != "" {
+			sortField, ok := allowedSortFields[query.SortBy]
+			if !ok {
+				// 无效的排序字段，使用默认排序
+				orderBy = "a.created_at DESC"
+			} else {
+				// 验证排序方向
+				order := strings.ToLower(query.Order)
+				if !allowedOrders[order] {
+					order = "desc" // 默认降序
+				}
+				orderBy = fmt.Sprintf("%s %s", sortField, strings.ToUpper(order))
+			}
+		} else {
+			// 默认按创建时间倒序
+			orderBy = "a.created_at DESC"
+		}
 	}
 
-	// 获取列表
+	// 获取列表 - 使用参数化查询，避免 SQL 注入
 	listQuery := fmt.Sprintf(`
 		SELECT a.id, a.title, a.slug, a.content, a.excerpt, a.cover_image, a.status,
 			   a.author_id, a.category_id, a.view_count, a.like_count, a.comment_count,

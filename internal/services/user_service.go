@@ -153,6 +153,24 @@ func (s *UserService) Delete(id uuid.UUID) error {
 	return s.userRepo.Delete(id)
 }
 
+// ChangePassword 修改用户密码（需提供旧密码）
+func (s *UserService) ChangePassword(id uuid.UUID, oldPassword, newPassword string) error {
+	user, err := s.userRepo.GetByID(id)
+	if err != nil {
+		return err
+	}
+	// 校验旧密码
+	if !user.CheckPassword(oldPassword) {
+		return errors.New("invalid old password")
+	}
+	// 设置新密码并哈希
+	user.Password = newPassword
+	if err := user.HashPassword(); err != nil {
+		return fmt.Errorf("failed to hash password: %w", err)
+	}
+	return s.userRepo.UpdatePassword(id, user.Password)
+}
+
 func (s *UserService) List(page, pageSize int) ([]*models.User, int64, error) {
 	if page <= 0 {
 		page = 1

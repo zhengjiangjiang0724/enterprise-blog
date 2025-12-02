@@ -17,6 +17,14 @@ export function Profile() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState<string | null>(null);
+  const [pwdForm, setPwdForm] = useState({
+    old_password: "",
+    new_password: "",
+    confirm_password: ""
+  });
 
   useEffect(() => {
     if (!token) return;
@@ -86,6 +94,53 @@ export function Profile() {
     }
   };
 
+  const handlePwdChange =
+    (field: keyof typeof pwdForm) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setPwdForm((prev) => ({
+        ...prev,
+        [field]: e.target.value
+      }));
+    };
+
+  const handlePwdSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError(null);
+    setPwdSuccess(null);
+    if (!pwdForm.old_password || !pwdForm.new_password) {
+      setPwdError("请填写完整的旧密码和新密码。");
+      return;
+    }
+    if (pwdForm.new_password !== pwdForm.confirm_password) {
+      setPwdError("两次输入的新密码不一致。");
+      return;
+    }
+    setPwdLoading(true);
+    try {
+      const res = await apiClient.put<ApiResponse<null>>("/users/password", {
+        old_password: pwdForm.old_password,
+        new_password: pwdForm.new_password
+      });
+      if (res.data.code !== 200) {
+        throw new Error(res.data.message || "修改密码失败");
+      }
+      setPwdSuccess("密码已修改，请使用新密码登录。");
+      showSuccess("密码已修改");
+      setPwdForm({
+        old_password: "",
+        new_password: "",
+        confirm_password: ""
+      });
+    } catch (e: any) {
+      const msg =
+        e.response?.data?.message || e.message || "修改密码失败";
+      setPwdError(msg);
+      showError(msg);
+    } finally {
+      setPwdLoading(false);
+    }
+  };
+
   if (!token) {
     return (
       <div className="profile-form">
@@ -101,40 +156,84 @@ export function Profile() {
       {error && <p className="error">{error}</p>}
       {success && <p className="success">{success}</p>}
       {profile && (
-        <form onSubmit={handleSubmit}>
-          <label>
-            用户名
-            <input
-              value={form.username}
-              onChange={handleChange("username")}
-              required
-            />
-          </label>
-          <label>
-            邮箱
-            <input
-              type="email"
-              value={form.email}
-              onChange={handleChange("email")}
-              required
-            />
-          </label>
-          <label>
-            头像地址
-            <input value={form.avatar} onChange={handleChange("avatar")} />
-          </label>
-          <label>
-            个性签名
-            <textarea
-              rows={4}
-              value={form.bio}
-              onChange={handleChange("bio")}
-            />
-          </label>
-          <button type="submit" className="button primary" disabled={loading}>
-            {loading ? "保存中..." : "更新资料"}
-          </button>
-        </form>
+        <>
+          <form onSubmit={handleSubmit}>
+            <label>
+              用户名
+              <input
+                value={form.username}
+                onChange={handleChange("username")}
+                required
+              />
+            </label>
+            <label>
+              邮箱
+              <input
+                type="email"
+                value={form.email}
+                onChange={handleChange("email")}
+                required
+              />
+            </label>
+            <label>
+              头像地址
+              <input value={form.avatar} onChange={handleChange("avatar")} />
+            </label>
+            <label>
+              个性签名
+              <textarea
+                rows={4}
+                value={form.bio}
+                onChange={handleChange("bio")}
+              />
+            </label>
+            <button type="submit" className="button primary" disabled={loading}>
+              {loading ? "保存中..." : "更新资料"}
+            </button>
+          </form>
+
+          <hr style={{ margin: "24px 0" }} />
+
+          <h3>修改密码</h3>
+          {pwdError && <p className="error">{pwdError}</p>}
+          {pwdSuccess && <p className="success">{pwdSuccess}</p>}
+          <form onSubmit={handlePwdSubmit}>
+            <label>
+              旧密码
+              <input
+                type="password"
+                value={pwdForm.old_password}
+                onChange={handlePwdChange("old_password")}
+                required
+              />
+            </label>
+            <label>
+              新密码
+              <input
+                type="password"
+                value={pwdForm.new_password}
+                onChange={handlePwdChange("new_password")}
+                required
+              />
+            </label>
+            <label>
+              确认新密码
+              <input
+                type="password"
+                value={pwdForm.confirm_password}
+                onChange={handlePwdChange("confirm_password")}
+                required
+              />
+            </label>
+            <button
+              type="submit"
+              className="button secondary"
+              disabled={pwdLoading}
+            >
+              {pwdLoading ? "修改中..." : "修改密码"}
+            </button>
+          </form>
+        </>
       )}
     </div>
   );
