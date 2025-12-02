@@ -1,3 +1,4 @@
+// Package services 提供业务逻辑层的服务实现
 package services
 
 import (
@@ -12,11 +13,15 @@ import (
 	"github.com/google/uuid"
 )
 
+// UserService 用户服务，提供用户相关的业务逻辑
 type UserService struct {
 	userRepo *repository.UserRepository
 	jwtMgr   *jwt.JWTManager
 }
 
+// NewUserService 创建新的用户服务实例
+// userRepo: 用户数据访问层仓库
+// jwtMgr: JWT管理器，用于生成和验证token
 func NewUserService(userRepo *repository.UserRepository, jwtMgr *jwt.JWTManager) *UserService {
 	return &UserService{
 		userRepo: userRepo,
@@ -24,6 +29,10 @@ func NewUserService(userRepo *repository.UserRepository, jwtMgr *jwt.JWTManager)
 	}
 }
 
+// Register 用户注册
+// req: 用户注册请求，包含用户名、邮箱、密码等信息
+// 返回: 注册成功的用户对象（密码已清除），如果注册失败则返回错误
+// 注意: 会检查邮箱和用户名是否已存在，密码使用bcrypt加密存储
 func (s *UserService) Register(req *models.UserCreate) (*models.User, error) {
 	// 检查邮箱是否已存在
 	_, err := s.userRepo.GetByEmail(req.Email)
@@ -64,6 +73,10 @@ func (s *UserService) Register(req *models.UserCreate) (*models.User, error) {
 	return user, nil
 }
 
+// Login 用户登录（邮箱密码方式）
+// req: 用户登录请求，包含邮箱和密码
+// 返回: JWT token、用户对象（密码已清除），如果登录失败则返回错误
+// 注意: 会验证密码和用户状态，只有active状态的用户才能登录
 func (s *UserService) Login(req *models.UserLogin) (string, *models.User, error) {
 	// 获取用户
 	user, err := s.userRepo.GetByEmail(req.Email)
@@ -92,6 +105,9 @@ func (s *UserService) Login(req *models.UserLogin) (string, *models.User, error)
 	return token, user, nil
 }
 
+// GetByID 根据ID获取用户详情
+// id: 用户UUID
+// 返回: 用户对象（密码已清除），如果不存在则返回错误
 func (s *UserService) GetByID(id uuid.UUID) (*models.User, error) {
 	user, err := s.userRepo.GetByID(id)
 	if err != nil {
@@ -101,6 +117,11 @@ func (s *UserService) GetByID(id uuid.UUID) (*models.User, error) {
 	return user, nil
 }
 
+// Update 更新用户信息
+// id: 用户UUID
+// req: 用户更新请求，包含可选的用户名、邮箱、角色、头像、简介、状态等
+// 返回: 更新后的用户对象（密码已清除），如果更新失败则返回错误
+// 注意: 会检查用户名和邮箱是否已被其他用户使用
 func (s *UserService) Update(id uuid.UUID, req *models.UserUpdate) (*models.User, error) {
 	user, err := s.userRepo.GetByID(id)
 	if err != nil {
@@ -149,11 +170,18 @@ func (s *UserService) Update(id uuid.UUID, req *models.UserUpdate) (*models.User
 	return user, nil
 }
 
+// Delete 删除用户（软删除）
+// id: 用户UUID
+// 返回: 如果删除失败则返回错误
 func (s *UserService) Delete(id uuid.UUID) error {
 	return s.userRepo.Delete(id)
 }
 
-// ChangePassword 修改用户密码（需提供旧密码）
+// ChangePassword 修改用户密码（需提供旧密码进行验证）
+// id: 用户UUID
+// oldPassword: 当前密码，用于验证用户身份
+// newPassword: 新密码，将使用bcrypt加密后存储
+// 返回: 如果旧密码错误或更新失败则返回错误
 func (s *UserService) ChangePassword(id uuid.UUID, oldPassword, newPassword string) error {
 	user, err := s.userRepo.GetByID(id)
 	if err != nil {
@@ -171,6 +199,11 @@ func (s *UserService) ChangePassword(id uuid.UUID, oldPassword, newPassword stri
 	return s.userRepo.UpdatePassword(id, user.Password)
 }
 
+// List 获取用户列表（分页）
+// page: 页码，从1开始
+// pageSize: 每页数量，最大100
+// 返回: 用户列表、总数，如果查询失败则返回错误
+// 注意: 返回的用户对象密码已清除
 func (s *UserService) List(page, pageSize int) ([]*models.User, int64, error) {
 	if page <= 0 {
 		page = 1
@@ -195,8 +228,11 @@ func (s *UserService) List(page, pageSize int) ([]*models.User, int64, error) {
 	return users, total, nil
 }
 
+// GenerateSlug 生成URL友好的slug字符串
+// text: 原始文本
+// 返回: 转换后的slug（小写、空格和下划线替换为连字符）
+// 注意: 这是简单的实现，生产环境建议使用更完善的slug生成库
 func GenerateSlug(text string) string {
-	// 简单的slug生成，生产环境应使用更完善的实现
 	slug := strings.ToLower(text)
 	slug = strings.ReplaceAll(slug, " ", "-")
 	slug = strings.ReplaceAll(slug, "_", "-")

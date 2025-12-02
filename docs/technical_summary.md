@@ -389,7 +389,52 @@ type Response struct {
 
 ### 6.2 数据安全
 
-- 使用参数化查询防止SQL注入
+#### 6.2.1 SQL注入防护
+
+系统实施了多层SQL注入防护措施：
+
+1. **参数化查询**
+   - 所有用户输入都通过参数化查询（`?` 占位符）绑定
+   - 使用 GORM 的 `Raw()` 方法配合参数数组
+   - 示例：
+   ```go
+   where := []string{"a.deleted_at IS NULL"}
+   args := []interface{}{}
+   if query.Status != "" {
+       where = append(where, "a.status = ?")
+       args = append(args, query.Status)
+   }
+   ```
+
+2. **白名单验证**
+   - 对于无法使用参数化查询的场景（如 ORDER BY 字段名），使用白名单验证
+   - `SortBy` 字段：只允许预定义的字段名（id, title, created_at, updated_at, published_at, view_count, like_count, comment_count）
+   - `Order` 字段：只允许 "asc" 或 "desc"
+   - 示例：
+   ```go
+   allowedSortFields := map[string]string{
+       "id": "a.id",
+       "title": "a.title",
+       "created_at": "a.created_at",
+       // ...
+   }
+   sortField, ok := allowedSortFields[query.SortBy]
+   if !ok {
+       // 使用默认排序
+   }
+   ```
+
+3. **字符验证和转义**
+   - 对于全文搜索的 `tsQuery`，验证只包含允许的字符（字母、数字、空格、&、|、!、(、)）
+   - 转义单引号（`'` → `''`）防止注入
+   - 包含非法字符时回退到默认排序
+
+4. **安全原则**
+   - 永远不信任用户输入
+   - 优先使用参数化查询
+   - 无法参数化时使用白名单验证
+   - 避免使用 `fmt.Sprintf` 直接拼接 SQL
+
 - 输入验证和过滤
 - 输出转义防止XSS
 

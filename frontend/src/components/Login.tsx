@@ -1,3 +1,9 @@
+/**
+ * 登录组件
+ * 支持两种登录方式：
+ * 1. 邮箱密码登录
+ * 2. 手机号验证码登录
+ */
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { apiClient } from "../api/client";
@@ -18,6 +24,11 @@ interface LoginResponse {
 
 type LoginMode = "email" | "phone";
 
+/**
+ * Login 登录组件
+ * 提供邮箱密码登录和手机号验证码登录两种方式
+ * 登录成功后会保存token和用户信息到localStorage，并跳转到首页
+ */
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -33,7 +44,7 @@ export function Login() {
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  // 倒计时
+  // 短信验证码倒计时
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -41,6 +52,10 @@ export function Login() {
     }
   }, [countdown]);
 
+  /**
+   * 发送短信验证码
+   * 验证手机号格式，调用API发送验证码，成功后启动60秒倒计时
+   */
   const handleSendCode = async () => {
     if (!phone.trim()) {
       showError("请输入手机号");

@@ -1,3 +1,4 @@
+// Package services 提供业务逻辑层的服务实现
 package services
 
 import (
@@ -13,12 +14,16 @@ import (
 	"enterprise-blog/pkg/logger"
 )
 
+// SMSService 短信服务，提供短信验证码相关的业务逻辑
 type SMSService struct {
 	smsRepo  *repository.SMSRepository
 	userRepo *repository.UserRepository
 	jwtMgr   interface{} // 占位，实际需要 JWTManager
 }
 
+// NewSMSService 创建新的短信服务实例
+// smsRepo: 短信验证码数据访问层仓库
+// userRepo: 用户数据访问层仓库，用于查找或创建用户
 func NewSMSService(smsRepo *repository.SMSRepository, userRepo *repository.UserRepository) *SMSService {
 	return &SMSService{
 		smsRepo:  smsRepo,

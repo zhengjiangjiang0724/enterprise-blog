@@ -1,3 +1,4 @@
+// Package services 提供业务逻辑层的服务实现
 package services
 
 import (
@@ -17,12 +18,17 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// ArticleService 文章服务，提供文章相关的业务逻辑
 type ArticleService struct {
 	articleRepo  *repository.ArticleRepository
 	categoryRepo *repository.CategoryRepository
 	tagRepo      *repository.TagRepository
 }
 
+// NewArticleService 创建新的文章服务实例
+// articleRepo: 文章数据访问层仓库
+// categoryRepo: 分类数据访问层仓库
+// tagRepo: 标签数据访问层仓库
 func NewArticleService(
 	articleRepo *repository.ArticleRepository,
 	categoryRepo *repository.CategoryRepository,
@@ -35,6 +41,11 @@ func NewArticleService(
 	}
 }
 
+// Create 创建新文章
+// authorID: 作者用户UUID
+// req: 文章创建请求，包含标题、内容、分类、标签等
+// 返回: 创建成功的文章对象（包含关联的作者、分类、标签），如果创建失败则返回错误
+// 注意: 会自动生成slug（如果冲突会自动添加数字后缀），自动生成摘要，支持标签关联
 func (s *ArticleService) Create(authorID uuid.UUID, req *models.ArticleCreate) (*models.Article, error) {
 	// 生成slug
 	slug := GenerateSlug(req.Title)
@@ -116,6 +127,10 @@ func (s *ArticleService) Create(authorID uuid.UUID, req *models.ArticleCreate) (
 	return nil, fmt.Errorf("failed to create article: slug already exists after %d retries", maxSlugRetries)
 }
 
+// GetByID 根据ID获取文章详情
+// id: 文章UUID
+// 返回: 文章对象（包含关联的作者、分类、标签），如果不存在则返回错误
+// 注意: 优先从Redis缓存读取，缓存未命中时从数据库读取并写入缓存，会异步增加浏览计数
 func (s *ArticleService) GetByID(id uuid.UUID) (*models.Article, error) {
 	// 优先从缓存读取
 	if article, err := getArticleDetailFromCache(id); err == nil && article != nil {
@@ -138,6 +153,10 @@ func (s *ArticleService) GetByID(id uuid.UUID) (*models.Article, error) {
 	return article, nil
 }
 
+// GetBySlug 根据slug获取文章详情
+// slug: 文章URL友好的标识符
+// 返回: 文章对象，如果不存在则返回错误
+// 注意: 会异步增加浏览计数
 func (s *ArticleService) GetBySlug(slug string) (*models.Article, error) {
 	article, err := s.articleRepo.GetBySlugWithContext(context.Background(), slug)
 	if err != nil {
@@ -150,6 +169,11 @@ func (s *ArticleService) GetBySlug(slug string) (*models.Article, error) {
 	return article, nil
 }
 
+// Update 更新文章信息
+// id: 文章UUID
+// req: 文章更新请求，包含可选的标题、内容、摘要、封面、状态、分类、标签等
+// 返回: 更新后的文章对象，如果更新失败则返回错误
+// 注意: 标题改变时会自动更新slug，内容改变时会自动生成摘要，会清理相关缓存并异步同步到Elasticsearch
 func (s *ArticleService) Update(id uuid.UUID, req *models.ArticleUpdate) (*models.Article, error) {
 	article, err := s.articleRepo.GetByIDWithContext(context.Background(), id)
 	if err != nil {
@@ -217,6 +241,10 @@ func (s *ArticleService) Update(id uuid.UUID, req *models.ArticleUpdate) (*model
 	return updated, err
 }
 
+// Delete 删除文章（软删除）
+// id: 文章UUID
+// 返回: 如果删除失败则返回错误
+// 注意: 会清理相关缓存并异步从Elasticsearch删除文档
 func (s *ArticleService) Delete(id uuid.UUID) error {
 	if err := s.articleRepo.Delete(id); err != nil {
 		return err
@@ -235,6 +263,10 @@ func (s *ArticleService) Delete(id uuid.UUID) error {
 	return nil
 }
 
+// List 获取文章列表（分页、筛选、搜索、排序）
+// query: 文章查询条件，包含页码、每页数量、状态、分类、标签、作者、搜索关键词、排序等
+// 返回: 文章列表、总数，如果查询失败则返回错误
+// 注意: 优先从Redis缓存读取，缓存未命中时从数据库读取并写入缓存
 func (s *ArticleService) List(query models.ArticleQuery) ([]*models.Article, int64, error) {
 	if query.Page <= 0 {
 		query.Page = 1
@@ -273,6 +305,12 @@ func (s *ArticleService) Like(id uuid.UUID) error {
 }
 
 // SearchWithElasticsearch 使用 Elasticsearch 搜索文章，并回到数据库取完整数据
+// SearchWithElasticsearch 使用Elasticsearch进行全文搜索
+// query: 搜索关键词
+// page: 页码，从1开始
+// pageSize: 每页数量
+// 返回: 文章列表、总数，如果搜索失败则返回错误
+// 注意: 如果Elasticsearch不可用，会回退到PostgreSQL全文搜索
 func (s *ArticleService) SearchWithElasticsearch(query string, page, pageSize int) ([]*models.Article, int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

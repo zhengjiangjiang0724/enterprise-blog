@@ -101,12 +101,19 @@
 
 ### 功能模块
 - 用户管理：✅ 完成
+  - 邮箱密码登录
+  - 手机号验证码登录（自动创建用户）
+  - 密码重置功能
 - 文章管理：✅ 完成
 - 分类标签：✅ 完成
 - 评论系统：✅ 完成
 - 认证授权：✅ 完成
 - 缓存机制：✅ 完成
 - API限流：✅ 完成
+- 安全防护：✅ 完成
+  - SQL注入防护（参数化查询 + 白名单验证）
+  - XSS防护
+  - JWT认证
 
 ### 技术特性
 - RESTful API：✅
@@ -139,6 +146,10 @@
 - ✅ JWT Token认证
 - ✅ 密码bcrypt加密
 - ✅ SQL注入防护
+  - 参数化查询（所有用户输入通过参数绑定）
+  - 白名单验证（ORDER BY 字段名和排序方向）
+  - 字符验证和转义（全文搜索查询）
+  - 避免字符串拼接 SQL
 - ✅ XSS防护
 - ✅ API限流
 
@@ -170,6 +181,7 @@ enterprise-blog/
 │   │   ├── category.go
 │   │   ├── tag.go
 │   │   ├── comment.go
+│   │   ├── sms.go
 │   │   └── response.go
 │   ├── handlers/         # HTTP处理器
 │   │   ├── user_handler.go
@@ -183,13 +195,15 @@ enterprise-blog/
 │   │   ├── category_service.go
 │   │   ├── tag_service.go
 │   │   ├── comment_service.go
+│   │   ├── sms_service.go
 │   │   └── utils.go (slug生成等)
 │   ├── repository/       # 数据访问层
 │   │   ├── user_repository.go
 │   │   ├── article_repository.go
 │   │   ├── category_repository.go
 │   │   ├── tag_repository.go
-│   │   └── comment_repository.go
+│   │   ├── comment_repository.go
+│   │   └── sms_repository.go
 │   ├── middleware/       # 中间件
 │   │   ├── auth.go
 │   │   ├── cors.go
@@ -205,7 +219,9 @@ enterprise-blog/
 │
 ├── migrations/           # 数据库迁移文件
 │   ├── 001_init_schema.up.sql
-│   └── 001_init_schema.down.sql
+│   ├── 001_init_schema.down.sql
+│   ├── 003_add_phone_sms.up.sql
+│   └── 003_add_phone_sms.down.sql
 │
 ├── tests/               # 测试文件
 │   ├── benchmark_test.go
@@ -286,9 +302,17 @@ make run
 - ✅ JWT Token认证
 - ✅ 密码bcrypt加密
 - ✅ SQL注入防护
+  - 参数化查询（所有用户输入通过参数绑定）
+  - 白名单验证（ORDER BY 字段名和排序方向）
+  - 字符验证和转义（全文搜索查询）
+  - 避免字符串拼接 SQL
 - ✅ XSS防护
 - ✅ API限流 (100 req/min)
 - ✅ CORS配置
+- ✅ 多种登录方式
+  - 邮箱密码登录
+  - 手机号验证码登录（自动创建用户）
+- ✅ 密码重置功能（需要验证旧密码）
 
 ## 📚 文档索引
 
